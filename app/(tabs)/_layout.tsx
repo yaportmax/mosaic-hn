@@ -11,7 +11,12 @@ export default function TabLayout() {
     <Tabs.Screen name="index" options={{ title: 'Feed' }} />
     <Tabs.Screen name="search" options={{ title: 'Search' }} />
     <Tabs.Screen name="library" options={{ title: 'Library' }} />
+    <Tabs.Screen name="archive" options={{ title: 'Time Travel' }} />
+    <Tabs.Screen name="presets" options={{ title: 'Feed Algorithms' }} />
+    <Tabs.Screen name="rules" options={{ title: 'Filters & Automation' }} />
     <Tabs.Screen name="themes" options={{ title: 'Themes' }} />
     <Tabs.Screen name="settings" options={{ title: 'Settings' }} />
+    <Tabs.Screen name="modules" options={{ title: 'Modules' }} />
+    <Tabs.Screen name="more" options={{ title: 'More' }} />
   </Tabs>;
 }

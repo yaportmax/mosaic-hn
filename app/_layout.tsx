@@ -27,6 +27,7 @@ function Navigation() {
       <Stack.Screen name="rules" />
       <Stack.Screen name="presets" />
       <Stack.Screen name="archive" />
+      <Stack.Screen name="modules" />
       <Stack.Screen name="command" options={{ presentation: 'modal' }} />
     </Stack>
   </>;

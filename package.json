@@ -9,7 +9,7 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "test": "node --experimental-strip-types --test src/core/*.test.ts src/db/*.test.ts src/state/*.test.ts src/design/*.test.ts theme-sdk/*.test.ts module-sdk/*.test.ts",
+    "test": "node --experimental-strip-types --test src/core/*.test.ts src/db/*.test.ts src/state/*.test.ts src/design/*.test.ts src/modules/*.test.ts theme-sdk/*.test.ts module-sdk/*.test.ts",
     "typecheck:core": "tsc -p tsconfig.core.json --noEmit",
     "typecheck:source": "tsc -p tsconfig.source.json --noEmit",
     "lint": "expo lint",
