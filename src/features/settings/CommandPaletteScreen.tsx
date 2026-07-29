@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useAppServices, usePreferences } from '../../app/AppServices.tsx';
+import { BUILTIN_MODULES } from '../../../module-sdk/registry.ts';
+import { useAppServices, useModuleConfiguration, usePreferences } from '../../app/AppServices.tsx';
 import { BUILTIN_THEMES } from '../../design/builtins.ts';
 import { Screen } from '../../components/Screen.tsx';
 import { DetailHeader } from '../../components/Header.tsx';
@@ -15,21 +16,31 @@ interface Command { id: string; title: string; subtitle: string; icon: string; k
 export function CommandPaletteScreen() {
   const { preferences: controller } = useAppServices();
   const preferences = usePreferences();
+  const moduleConfiguration = useModuleConfiguration();
   const runtime = useThemeRuntime();
   const [query, setQuery] = useState('');
-  const commands = useMemo<Command[]>(() => [
-    { id: 'feed', navigates: true, title: 'Open feed', subtitle: 'Top, New, Best, Ask, Show, and Jobs', icon: 'newspaper-outline', keywords: 'home top new best ask show jobs', run: () => router.replace('/(tabs)') },
-    { id: 'search', navigates: true, title: 'Search local archive', subtitle: 'Stories, comments, authors, and domains', icon: 'search-outline', keywords: 'find local fts', run: () => router.replace('/(tabs)/search') },
-    { id: 'library', navigates: true, title: 'Open library', subtitle: 'Bookmarks, queue, comments, and collections', icon: 'library-outline', keywords: 'saved bookmarks queue collection', run: () => router.replace('/(tabs)/library') },
-    { id: 'archive', navigates: true, title: 'Open local time travel', subtitle: 'Feed snapshots captured by this installation', icon: 'calendar-outline', keywords: 'archive history date past snapshot', run: () => router.replace('/archive') },
-    { id: 'themes', navigates: true, title: 'Open themes', subtitle: 'Installed themes and community registry', icon: 'color-palette-outline', keywords: 'appearance marketplace skin', run: () => router.replace('/(tabs)/themes') },
-    { id: 'studio', navigates: true, title: 'Create a theme', subtitle: 'Open the complete theme studio', icon: 'brush-outline', keywords: 'edit visual layout color font', run: () => router.replace('/theme/studio') },
-    { id: 'presets', navigates: true, title: 'Edit feed algorithms', subtitle: 'Local ranking weights and preferences', icon: 'options-outline', keywords: 'ranking custom feed algorithm', run: () => router.replace('/presets') },
-    { id: 'rules', navigates: true, title: 'Edit filters and automation', subtitle: 'Hide, boost, queue, save, and tag', icon: 'filter-outline', keywords: 'rule automation block mute', run: () => router.replace('/rules') },
-    { id: 'settings', navigates: true, title: 'Open settings', subtitle: 'Gestures, accessibility, data, and navigation', icon: 'settings-outline', keywords: 'preferences control', run: () => router.replace('/(tabs)/settings') },
-    { id: 'explain', title: preferences.showRankingExplanations ? 'Hide ranking explanations' : 'Show ranking explanations', subtitle: 'Toggle contribution details under feed stories', icon: 'analytics-outline', keywords: 'ranking why transparency', run: () => controller.update({ showRankingExplanations: !preferences.showRankingExplanations }) },
-    ...BUILTIN_THEMES.map((theme) => ({ id: `theme-${theme.manifest.id}`, title: `Use ${theme.manifest.name}`, subtitle: `${theme.layout.feed} feed · ${theme.layout.comments} comments`, icon: 'color-wand-outline', keywords: `theme ${theme.manifest.name} ${theme.manifest.description ?? ''}`, run: () => runtime.selectTheme(theme.manifest.id) }))
-  ], [controller, preferences.showRankingExplanations, runtime]);
+  const commands = useMemo<Command[]>(() => {
+    const moduleCommands = BUILTIN_MODULES
+      .filter((module) => module.kind === 'navigation' && module.id !== 'modules' && moduleConfiguration.enabled.includes(module.id) && module.route)
+      .map((module) => ({
+        id: `module-${module.id}`,
+        navigates: true,
+        title: `Open ${module.name}`,
+        subtitle: module.description,
+        icon: module.icon,
+        keywords: module.keywords.join(' '),
+        run: () => router.replace(module.id === 'modules' ? '/modules' : module.route ?? '/(tabs)')
+      }));
+    const utilityCommands: Command[] = [
+      { id: 'modules-recovery', navigates: true, title: 'Customize modules', subtitle: 'Enable, disable, place, order, export, or import app modules', icon: 'grid-outline', keywords: 'customize app setup recovery', run: () => router.replace('/modules') }
+    ];
+    if (moduleConfiguration.enabled.includes('algorithms')) utilityCommands.push({ id: 'explain', title: preferences.showRankingExplanations ? 'Hide ranking explanations' : 'Show ranking explanations', subtitle: 'Toggle contribution details under feed stories', icon: 'analytics-outline', keywords: 'ranking why transparency', run: () => controller.update({ showRankingExplanations: !preferences.showRankingExplanations }) });
+    if (moduleConfiguration.enabled.includes('themes')) {
+      utilityCommands.push({ id: 'studio', navigates: true, title: 'Create a theme', subtitle: 'Open the complete theme studio', icon: 'brush-outline', keywords: 'edit visual layout color font', run: () => router.replace('/theme/studio') });
+      utilityCommands.push(...BUILTIN_THEMES.map((theme) => ({ id: `theme-${theme.manifest.id}`, title: `Use ${theme.manifest.name}`, subtitle: `${theme.layout.feed} feed · ${theme.layout.comments} comments`, icon: 'color-wand-outline', keywords: `theme ${theme.manifest.name} ${theme.manifest.description ?? ''}`, run: () => runtime.selectTheme(theme.manifest.id) })));
+    }
+    return [...moduleCommands, ...utilityCommands];
+  }, [controller, moduleConfiguration, preferences.showRankingExplanations, runtime]);
   const normalized = query.trim().toLowerCase();
   const visible = commands.filter((command) => !normalized || `${command.title} ${command.subtitle} ${command.keywords}`.toLowerCase().includes(normalized));
   const run = async (command: Command) => { await command.run(); if (!command.navigates && router.canGoBack()) router.back(); };

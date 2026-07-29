@@ -1,6 +1,7 @@
 import { Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { useAppServices, usePreferences } from '../../app/AppServices.tsx';
+import { BUILTIN_MODULES } from '../../../module-sdk/registry.ts';
+import { useAppServices, useModuleConfiguration, usePreferences } from '../../app/AppServices.tsx';
 import { pickTextFile } from '../../app/file-exchange.ts';
 import { importLibraryJson } from '../../core/exports.ts';
 import type { FeedKind } from '../../core/models.ts';
@@ -18,7 +19,6 @@ import { Surface } from '../../components/Surface.tsx';
 import { ThemedText } from '../../components/ThemedText.tsx';
 
 const gestureActions: GestureAction[] = ['none', 'open', 'save', 'queue', 'share', 'hide'];
-const tabLabels = { feed: 'Feed', search: 'Search', library: 'Library', themes: 'Themes', settings: 'Settings' } as const;
 
 function Choice<T extends string>({ values, selected, labels, onSelect }: { values: readonly T[]; selected: T; labels?: Partial<Record<T, string>>; onSelect(value: T): void }) {
   return <View style={styles.chips}>{values.map((value) => <Chip key={value} compact label={labels?.[value] ?? value} selected={value === selected} onPress={() => onSelect(value)} />)}</View>;
@@ -26,6 +26,7 @@ function Choice<T extends string>({ values, selected, labels, onSelect }: { valu
 
 export function SettingsScreen() {
   const preferences = usePreferences();
+  const moduleConfiguration = useModuleConfiguration();
   const { preferences: controller, database } = useAppServices();
   const update = (patch: Parameters<typeof controller.update>[0]) => void controller.update(patch);
 
@@ -37,22 +38,20 @@ export function SettingsScreen() {
     Alert.alert('Import complete', `${payload.bookmarks.length} bookmarks, ${payload.collections.length} collections, ${payload.presets.length} feed presets, and ${payload.rules.length} rules were merged locally.`);
   };
 
-  const reset = () => Alert.alert('Reset preferences?', 'This keeps your cached stories and library but restores appearance, feed, gesture, and reading preferences.', [
+  const reset = () => Alert.alert('Reset preferences?', 'This keeps your cached stories, module setup, and library but restores appearance, feed, gesture, and reading preferences.', [
     { text: 'Cancel', style: 'cancel' },
     { text: 'Reset', style: 'destructive', onPress: () => void controller.reset() }
   ]);
 
-  const moveTab = (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= preferences.tabOrder.length) return;
-    const order = [...preferences.tabOrder];
-    [order[index], order[target]] = [order[target]!, order[index]!];
-    update({ tabOrder: order });
-  };
-
   return <Screen edges={['top']}>
-    <ScreenHeader title="Settings" subtitle="Local, private, and extensively configurable" />
+    <ScreenHeader title="Settings" subtitle="Local, private, modular, and extensively configurable" />
     <ScrollView contentContainerStyle={styles.content}>
+      <Section title="App composition">
+        <Surface style={styles.group}>
+          <SettingRow icon="grid-outline" title="Modules" detail={`${moduleConfiguration.enabled.length} of ${BUILTIN_MODULES.length} enabled · choose tabs, More, hidden modules, order, and home screen.`} onPress={() => router.push('/modules')} />
+        </Surface>
+      </Section>
+
       <Section title="Reading">
         <Surface style={styles.group}>
           <SettingRow icon="globe-outline" title="Open links" detail="Choose the system browser or an in-app browser sheet." />
@@ -67,8 +66,8 @@ export function SettingsScreen() {
         <Choice<FeedKind> values={FEED_KINDS} selected={preferences.defaultFeed} labels={FEED_LABELS} onSelect={(defaultFeed) => update({ defaultFeed })} />
         <Surface style={styles.numberChoices}><ThemedText variant="meta" muted>Stories per refresh</ThemedText><Choice values={['60', '120', '200', '300'] as const} selected={String(preferences.feedLimit) as '60' | '120' | '200' | '300'} onSelect={(value) => update({ feedLimit: Number(value) })} /></Surface>
         <Surface style={styles.numberChoices}><ThemedText variant="meta" muted>Automatic refresh</ThemedText><Choice values={['0', '5', '10', '30'] as const} selected={String(preferences.autoRefreshMinutes) as '0' | '5' | '10' | '30'} labels={{ '0': 'Off', '5': '5 min', '10': '10 min', '30': '30 min' }} onSelect={(value) => update({ autoRefreshMinutes: Number(value) })} /></Surface>
-        <Button label="Edit custom feed algorithms" icon="options-outline" variant="secondary" onPress={() => router.push('/presets')} />
-        <Button label="Edit filters and automation" icon="filter-outline" variant="secondary" onPress={() => router.push('/rules')} />
+        {moduleConfiguration.enabled.includes('algorithms') ? <Button label="Edit custom feed algorithms" icon="options-outline" variant="secondary" onPress={() => router.push('/presets')} /> : null}
+        {moduleConfiguration.enabled.includes('automation') ? <Button label="Edit filters and automation" icon="filter-outline" variant="secondary" onPress={() => router.push('/rules')} /> : null}
       </Section>
 
       <Section title="Appearance and accessibility">
@@ -84,27 +83,23 @@ export function SettingsScreen() {
         </Surface>
       </Section>
 
-      <Section title="Gesture controls" caption="Every gesture invokes a trusted core action; themes cannot replace the behavior.">
+      <Section title="Gesture controls" caption="Every gesture invokes a trusted core action; themes and module setup files cannot replace the behavior.">
         {([
           ['Swipe left', 'swipeLeft'], ['Swipe right', 'swipeRight'], ['Long press', 'longPress'], ['Double tap', 'doubleTap']
         ] as const).map(([label, key]) => <Surface key={key} style={styles.gesture}><ThemedText variant="meta" muted>{label}</ThemedText><Choice values={gestureActions} selected={preferences.gestures[key]} onSelect={(action) => update({ gestures: { ...preferences.gestures, [key]: action } })} /></Surface>)}
       </Section>
 
-      <Section title="Tab order" caption="The navigation bar follows this order on phones and tablets.">
-        <View style={styles.tabStack}>{preferences.tabOrder.map((tab, index) => <Surface key={tab} style={styles.tabRow}><ThemedText style={styles.tabLabel}>{index + 1}. {tabLabels[tab]}</ThemedText><View style={styles.tabButtons}><Button label="Up" variant="ghost" disabled={index === 0} onPress={() => moveTab(index, -1)} /><Button label="Down" variant="ghost" disabled={index === preferences.tabOrder.length - 1} onPress={() => moveTab(index, 1)} /></View></Surface>)}</View>
-      </Section>
-
       <Section title="Data and source">
         <Surface style={styles.group}>
-          <SettingRow icon="cloud-offline-outline" title="No Mosaic account" detail="Stories, themes, rules, notes, and reading history stay in your local SQLite database." />
+          <SettingRow icon="cloud-offline-outline" title="No Mosaic account" detail="Stories, modules, themes, rules, notes, and reading history stay in your local SQLite database." />
           <SettingRow icon="download-outline" title="Import library JSON" detail="Merge a Mosaic HN version 1 export into this device." onPress={() => void importLibrary().catch((error) => Alert.alert('Import failed', error instanceof Error ? error.message : 'The file could not be imported'))} />
           <SettingRow icon="logo-github" title="Source code" detail="MIT licensed at github.com/yaportmax/mosaic-hn" onPress={() => void Linking.openURL('https://github.com/yaportmax/mosaic-hn')} />
-          <SettingRow icon="document-text-outline" title="Open-source licenses" detail="All application code and bundled themes are inspectable." onPress={() => void Linking.openURL('https://github.com/yaportmax/mosaic-hn/blob/main/LICENSE')} />
-          <SettingRow icon="refresh-outline" title="Reset preferences" detail={`Restores the ${DEFAULT_PREFERENCES.defaultFeed} feed, Mosaic theme, and default gestures.`} destructive onPress={reset} />
+          <SettingRow icon="document-text-outline" title="Open-source licenses" detail="All application code, module contracts, and bundled themes are inspectable." onPress={() => void Linking.openURL('https://github.com/yaportmax/mosaic-hn/blob/main/LICENSE')} />
+          <SettingRow icon="refresh-outline" title="Reset preferences" detail={`Restores the ${DEFAULT_PREFERENCES.defaultFeed} feed, Mosaic theme, and default gestures without changing modules.`} destructive onPress={reset} />
         </Surface>
       </Section>
     </ScrollView>
   </Screen>;
 }
 
-const styles = StyleSheet.create({ content: { padding: 14, paddingBottom: 120, gap: 25 }, group: { paddingHorizontal: 14, paddingBottom: 12 }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingHorizontal: 4, paddingBottom: 10 }, numberChoices: { padding: 12, gap: 8 }, gesture: { padding: 12, gap: 8 }, tabStack: { gap: 8 }, tabRow: { minHeight: 56, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 10 }, tabLabel: { flex: 1 }, tabButtons: { flexDirection: 'row', gap: 4 } });
+const styles = StyleSheet.create({ content: { padding: 14, paddingBottom: 120, gap: 25 }, group: { paddingHorizontal: 14, paddingBottom: 12 }, chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7, paddingHorizontal: 4, paddingBottom: 10 }, numberChoices: { padding: 12, gap: 8 }, gesture: { padding: 12, gap: 8 } });
