@@ -10,7 +10,8 @@ import type { ThemePackage, ThemeRegistry } from '../../theme-sdk/types.ts';
 export const BUILTIN_THEMES: ThemePackage[] = [mosaic, liquid, classic, paper, terminal, neon] as ThemePackage[];
 export const BUILTIN_THEME_MAP = new Map(BUILTIN_THEMES.map((theme) => [theme.manifest.id, theme]));
 export const BUILTIN_REGISTRY = registry as ThemeRegistry;
-export const DEFAULT_THEME_ID = 'org.mosaichn.mosaic';
+export { DEFAULT_THEME_ID } from './constants.ts';
+import { DEFAULT_THEME_ID } from './constants.ts';
 
 export function getBuiltinTheme(id: string): ThemePackage {
   return BUILTIN_THEME_MAP.get(id) ?? BUILTIN_THEME_MAP.get(DEFAULT_THEME_ID)!;
