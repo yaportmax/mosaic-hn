@@ -6,6 +6,8 @@ on:
     paths:
       - "bootstrap/**"
       - ".github/workflows/bootstrap-source.yml"
+  pull_request_target:
+    types: [opened, reopened, synchronize]
   workflow_dispatch:
 
 permissions:
@@ -16,9 +18,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Check out repository
+      - name: Check out trusted default branch
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Decode and extract source archive
@@ -59,6 +62,7 @@ jobs:
 
           rm -rf bootstrap
           rm -f .github/workflows/bootstrap-source.yml
+          rm -f upload-status.txt
 
       - name: Verify expanded project structure
         shell: bash
