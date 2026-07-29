@@ -37,6 +37,13 @@ export class MemoryDatabaseAdapter implements DatabaseAdapter {
       .map(([key, value]) => ({ key, value: structuredClone(value) as T }));
   }
 
+  async search<T>(table: string, query: string, limit = 100): Promise<Array<KeyValueRecord<T>>> {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return [];
+    const records = await this.scan<T>(table);
+    return records.filter((record) => JSON.stringify(record.value).toLowerCase().includes(normalized)).slice(0, limit);
+  }
+
   async transaction<T>(work: (transaction: DatabaseAdapter) => Promise<T>): Promise<T> {
     const staged = new MemoryDatabaseAdapter(this.tables);
     const result = await work(staged);
