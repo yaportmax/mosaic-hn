@@ -75,3 +75,21 @@ npx expo export --platform all
 ## Git state
 
 The repository includes full Git history and tags through `v1.0.0-rc.2`. Continue on a new branch. Do not rewrite the existing history unless explicitly requested.
+
+## Publishing this handoff repository
+
+The repository was prepared with complete source, history, tags, and agent context. To publish it to the already-created GitHub repository:
+
+### Windows PowerShell
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/publish-existing-github.ps1
+```
+
+### macOS/Linux
+
+```bash
+./scripts/publish-existing-github.sh
+```
+
+The scripts target `https://github.com/yaportmax/mosaic-hn.git`, rename the current branch to `main`, push the complete history, and push all tags.
