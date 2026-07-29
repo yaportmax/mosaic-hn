@@ -5,11 +5,14 @@ import { BUILTIN_THEMES } from '../design/builtins.ts';
 import { APP_VERSION } from '../design/constants.ts';
 import { ThemeManager } from '../design/theme-manager.ts';
 import { PreferencesController, type AppPreferences } from '../state/preferences.ts';
+import { ModuleConfigurationController } from '../state/modules.ts';
+import type { ModuleConfigurationV1 } from '../../module-sdk/types.ts';
 
 export interface AppServices {
   database: AppDatabase;
   preferences: PreferencesController;
   themes: ThemeManager;
+  modules: ModuleConfigurationController;
 }
 
 const ServicesContext = createContext<AppServices | null>(null);
@@ -34,8 +37,11 @@ export function AppServicesProvider({ children }: { children: ReactNode }) {
         const preferences = new PreferencesController(database.adapter);
         await preferences.load();
         if (!active) { await closeDatabase(); return; }
+        const modules = new ModuleConfigurationController(database.adapter);
+        await modules.load();
+        if (!active) { await closeDatabase(); return; }
         const themes = new ThemeManager(database.adapter, BUILTIN_THEMES, APP_VERSION);
-        setServices({ database, preferences, themes });
+        setServices({ database, preferences, themes, modules });
       } catch (reason) {
         if (active) setError(reason instanceof Error ? reason : new Error('Mosaic HN could not start'));
       }
@@ -58,6 +64,15 @@ export function useAppServices(): AppServices {
 export function usePreferences(): AppPreferences {
   const { preferences } = useAppServices();
   return useSyncExternalStore(preferences.subscribe, preferences.getSnapshot, preferences.getSnapshot);
+}
+
+export function useModuleConfiguration(): ModuleConfigurationV1 {
+  const { modules } = useAppServices();
+  return useSyncExternalStore(modules.subscribe, modules.getSnapshot, modules.getSnapshot);
+}
+
+export function useModuleEnabled(id: string): boolean {
+  return useModuleConfiguration().enabled.includes(id);
 }
 
 const styles = StyleSheet.create({
