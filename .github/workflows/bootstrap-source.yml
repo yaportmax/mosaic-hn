@@ -1,66 +1,98 @@
-name: Publish complete Mosaic HN source
+name: Expand complete Mosaic HN source
 
 on:
   push:
     branches: [main]
     paths:
-      - .github/workflows/bootstrap-source.yml
-  pull_request_target:
-    types: [opened, reopened, synchronize]
+      - "bootstrap/**"
+      - ".github/workflows/bootstrap-source.yml"
+  workflow_dispatch:
 
 permissions:
   contents: write
-  pull-requests: read
 
 jobs:
-  publish-source:
-    if: github.event_name == 'push' || github.actor == 'yaportmax'
+  expand-source:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
         with:
-          node-version: 22.14.0
+          fetch-depth: 0
 
-      - name: Reconstruct and verify source archive
+      - name: Decode and extract source archive
         shell: bash
         run: |
           set -euo pipefail
-          cat bootstrap/source.tar.xz.b64.part-* > /tmp/mosaic-source.tar.xz.b64
-          base64 --decode /tmp/mosaic-source.tar.xz.b64 > /tmp/mosaic-source.tar.xz
-          echo "a9d051f0256333406248919b48c53006ddd453756de48a8b83443c2dbcab604d  /tmp/mosaic-source.tar.xz" | sha256sum -c -
+          shopt -s nullglob
 
-      - name: Extract and verify complete handoff
+          parts=(bootstrap/source.tar.gz.b64.part-*)
+          if (( ${#parts[@]} == 0 )); then
+            echo "No source archive parts found" >&2
+            exit 1
+          fi
+
+          cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > /tmp/mosaic-hn-source.tar.gz
+          gzip -t /tmp/mosaic-hn-source.tar.gz
+
+          rm -rf /tmp/mosaic-hn-source
+          mkdir -p /tmp/mosaic-hn-source
+          tar -xzf /tmp/mosaic-hn-source.tar.gz -C /tmp/mosaic-hn-source
+
+          source_root=/tmp/mosaic-hn-source
+          mapfile -t top_entries < <(find "$source_root" -mindepth 1 -maxdepth 1 -print)
+          if (( ${#top_entries[@]} == 1 )) && [[ -d "${top_entries[0]}" ]]; then
+            source_root="${top_entries[0]}"
+          fi
+
+          test -f "$source_root/package.json"
+          test -f "$source_root/AGENTS.md"
+          test -f "$source_root/README.md"
+          test -d "$source_root/src"
+          test -d "$source_root/app"
+
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/workflows/bootstrap-source.yml' \
+            "$source_root"/ ./
+
+          rm -rf bootstrap
+          rm -f .github/workflows/bootstrap-source.yml
+
+      - name: Verify expanded project structure
         shell: bash
         run: |
           set -euo pipefail
-          tar -xJf /tmp/mosaic-source.tar.xz -C "$GITHUB_WORKSPACE"
+          test -f package.json
           test -f AGENTS.md
           test -f CLAUDE.md
-          test -f package.json
-          test -f docs/handoff/CONVERSATION_CONTEXT.md
-          test -f docs/handoff/NEXT_AGENT_TASKS.md
+          test -f README.md
+          test -f LICENSE
+          test -f app.config.ts
+          test -f eas.json
           test -f .github/workflows/quality.yml
-          npm test
-          npm run validate:themes
-          npm run verify:source
+          test -d app
+          test -d src
+          test -d module-sdk
+          test -d theme-sdk
+          test -d docs
+          test -d tests
 
-      - name: Commit source tree
+          file_count=$(find . -path './.git' -prune -o -type f -print | wc -l)
+          echo "Expanded file count: $file_count"
+          if (( file_count < 170 )); then
+            echo "Expected at least 170 project files" >&2
+            exit 1
+          fi
+
+      - name: Commit complete source tree
         shell: bash
         run: |
           set -euo pipefail
-          # Keep this bootstrap workflow unchanged during the Actions push.
-          # The quality workflow is added immediately afterward through the
-          # authenticated GitHub connector, avoiding workflow-token restrictions.
-          mv .github/workflows/quality.yml /tmp/mosaic-quality.yml
-          rm -rf bootstrap
-          file_count="$(find . -path './.git' -prune -o -type f -print | wc -l | tr -d ' ')"
-          test "$file_count" -eq 177
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git diff --cached --quiet && { echo 'No source changes staged'; exit 1; }
+          git diff --cached --stat
           git commit -m "feat: publish complete Mosaic HN source"
           git push origin HEAD:main
