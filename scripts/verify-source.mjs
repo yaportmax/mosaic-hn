@@ -12,8 +12,13 @@ const requiredFiles = [
   'app/(tabs)/index.tsx',
   'app/(tabs)/search.tsx',
   'app/(tabs)/library.tsx',
+  'app/(tabs)/archive.tsx',
+  'app/(tabs)/presets.tsx',
+  'app/(tabs)/rules.tsx',
   'app/(tabs)/themes.tsx',
   'app/(tabs)/settings.tsx',
+  'app/(tabs)/modules.tsx',
+  'app/(tabs)/more.tsx',
   'app/story/[id].tsx',
   'app/user/[id].tsx',
   'app/theme/[id].tsx',
@@ -24,6 +29,20 @@ const requiredFiles = [
   'app/presets.tsx',
   'app/command.tsx',
   'app/archive.tsx',
+  'app/modules.tsx',
+  'module-sdk/types.ts',
+  'module-sdk/registry.ts',
+  'module-sdk/configuration.ts',
+  'module-sdk/configuration.test.ts',
+  'src/modules/runtime.ts',
+  'src/modules/runtime.test.ts',
+  'src/modules/capabilities.ts',
+  'src/modules/capabilities.test.ts',
+  'src/state/modules.ts',
+  'src/state/modules.test.ts',
+  'src/features/modules/ModulesScreen.tsx',
+  'src/components/MoreModulesScreen.tsx',
+  'src/components/ModuleUnavailable.tsx',
   'src/features/archive/ArchiveScreen.tsx',
   'theme-sdk/theme.schema.json',
   'themes/registry.json',
@@ -31,6 +50,7 @@ const requiredFiles = [
   'assets/adaptive-icon.png',
   'assets/splash-icon.png',
   'docs/ARCHITECTURE.md',
+  'docs/MODULES.md',
   'docs/PRIVACY.md',
   'docs/PERFORMANCE.md',
   'docs/THEME_AUTHORING.md',
@@ -76,8 +96,8 @@ for (const path of allFiles) {
   const text = await readFile(path, 'utf8');
   textByFile.set(file, text);
   if (file !== 'scripts/verify-source.mjs' && /\b(?:TODO|TBD|FIXME)\b/.test(text) && !file.includes('docs/superpowers/')) failures.push(`${file}: contains unfinished marker`);
-  if (/^(?:app|src|theme-sdk)\//.test(file) && /(?:from|require\()\s*['"](?:@sentry|sentry|segment|amplitude|mixpanel|openai|anthropic)/i.test(text)) failures.push(`${file}: contains a prohibited hosted-service dependency`);
-  if (/^(?:app|src|theme-sdk)\//.test(file) && !file.endsWith('.test.ts') && /(?:@ts-ignore|@ts-nocheck|\bas any\b|:\s*any\b|<any>)/.test(text)) failures.push(`${file}: contains a type-safety escape hatch`);
+  if (/^(?:app|src|theme-sdk|module-sdk)\//.test(file) && /(?:from|require\()\s*['"](?:@sentry|sentry|segment|amplitude|mixpanel|openai|anthropic)/i.test(text)) failures.push(`${file}: contains a prohibited hosted-service dependency`);
+  if (/^(?:app|src|theme-sdk|module-sdk)\//.test(file) && !file.endsWith('.test.ts') && /(?:@ts-ignore|@ts-nocheck|\bas any\b|:\s*any\b|<any>)/.test(text)) failures.push(`${file}: contains a type-safety escape hatch`);
 }
 
 const pkg = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
@@ -86,6 +106,9 @@ if (pkg.license !== 'MIT') failures.push('package.json: license must be MIT');
 if (pkg.main !== 'expo-router/entry') failures.push('package.json: Expo Router entry is missing');
 if (pkg.type !== 'module') failures.push('package.json: module type must be explicit');
 if (!pkg.scripts?.verify) failures.push('package.json: verify script is missing');
+for (const required of ['src/modules/*.test.ts', 'module-sdk/*.test.ts']) {
+  if (!pkg.scripts?.test?.includes(required)) failures.push(`package.json: test script must include ${required}`);
+}
 for (const name of dependencyNames) {
   if (/sentry|segment|amplitude|mixpanel|openai|anthropic/i.test(name)) failures.push(`package.json: prohibited dependency ${name}`);
   if (['react-dom', 'react-native-web'].includes(name)) failures.push(`package.json: mobile release must not include ${name}`);
@@ -153,6 +176,66 @@ for (const required of ['getMany<', 'MAX_STORY_SNAPSHOTS = 256', 'SNAPSHOT_MIN_I
   if (!repository.includes(required)) failures.push(`reader repository: missing performance/storage guard ${required}`);
 }
 
+const moduleRegistry = textByFile.get('module-sdk/registry.ts') ?? '';
+const moduleConfiguration = textByFile.get('module-sdk/configuration.ts') ?? '';
+const moduleManager = textByFile.get('src/features/modules/ModulesScreen.tsx') ?? '';
+const moduleDocs = textByFile.get('docs/MODULES.md') ?? '';
+const readme = textByFile.get('README.md') ?? '';
+
+for (const required of [
+  "id: 'feed'", "id: 'search'", "id: 'library'", "id: 'archive'", "id: 'algorithms'", "id: 'automation'",
+  "id: 'themes'", "id: 'settings'", "id: 'modules'", "id: 'comments'", "id: 'discovery'"
+]) if (!moduleRegistry.includes(required)) failures.push(`module registry: missing ${required}`);
+
+const navigationRoutes = {
+  feed: ['index', 'app/(tabs)/index.tsx'],
+  search: ['search', 'app/(tabs)/search.tsx'],
+  library: ['library', 'app/(tabs)/library.tsx'],
+  archive: ['archive', 'app/(tabs)/archive.tsx'],
+  algorithms: ['presets', 'app/(tabs)/presets.tsx'],
+  automation: ['rules', 'app/(tabs)/rules.tsx'],
+  themes: ['themes', 'app/(tabs)/themes.tsx'],
+  settings: ['settings', 'app/(tabs)/settings.tsx'],
+  modules: ['modules', 'app/(tabs)/modules.tsx']
+};
+for (const [id, [tabRoute, routeFile]] of Object.entries(navigationRoutes)) {
+  const definitionPattern = new RegExp(`id: '${id}'[\\s\\S]*?tabRoute: '${tabRoute}'`);
+  if (!definitionPattern.test(moduleRegistry)) failures.push(`module registry: ${id} is missing tabRoute ${tabRoute}`);
+  if (!textByFile.has(routeFile)) failures.push(`module routing: missing ${routeFile}`);
+}
+
+const guardedRoutes = {
+  'app/(tabs)/search.tsx': 'search',
+  'app/(tabs)/library.tsx': 'library',
+  'app/(tabs)/archive.tsx': 'archive',
+  'app/(tabs)/presets.tsx': 'algorithms',
+  'app/(tabs)/rules.tsx': 'automation',
+  'app/(tabs)/themes.tsx': 'themes',
+  'app/(tabs)/settings.tsx': 'settings',
+  'app/archive.tsx': 'archive',
+  'app/presets.tsx': 'algorithms',
+  'app/rules.tsx': 'automation',
+  'app/theme/[id].tsx': 'themes',
+  'app/theme/studio.tsx': 'themes',
+  'app/discovery/domain/[domain].tsx': 'discovery',
+  'app/user/[id].tsx': 'discovery',
+  'app/collection/[id].tsx': 'library'
+};
+for (const [file, id] of Object.entries(guardedRoutes)) {
+  if (!(textByFile.get(file) ?? '').includes(`ModuleGate moduleId="${id}"`)) failures.push(`module routing: ${file} is not guarded by ${id}`);
+}
+
+for (const required of ['MAX_IMPORT_BYTES', 'MAX_MODULE_RECORDS', 'definition.required', 'addDependencies(', 'tabCandidates.length === 0', 'homeModuleId']) {
+  if (!moduleConfiguration.includes(required)) failures.push(`module configuration: missing recovery/import guard ${required}`);
+}
+for (const required of ['setEnabled(', 'setPlacement(', 'move(', 'setHome(', 'exportModuleConfiguration(', 'importModuleConfiguration(']) {
+  if (!moduleManager.includes(required)) failures.push(`module manager: missing control ${required}`);
+}
+for (const required of ['Disabling a module does not delete', 'Feed and Modules are required', 'cannot execute code']) {
+  if (!moduleDocs.includes(required)) failures.push(`docs/MODULES.md: missing required contract text ${required}`);
+}
+if (!readme.includes('[Modules](docs/MODULES.md)') || !readme.includes('user-facing module system')) failures.push('README.md: module system is not prominent or linked');
+
 const workflow = textByFile.get('.github/workflows/quality.yml') ?? '';
 for (const required of ['npx tsc -p tsconfig.json --noEmit', 'npx expo-doctor', 'expo export --platform ios', 'expo export --platform android']) {
   if (!workflow.includes(required)) failures.push(`quality workflow: missing ${required}`);
@@ -170,4 +253,4 @@ if (failures.length) {
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log(`Source verification passed: ${requiredFiles.length} release files present; imports, mobile configuration, theme coverage, storage guards, and dependency policy are consistent.`);
+console.log(`Source verification passed: ${requiredFiles.length} release files present; imports, mobile configuration, module routing/recovery, theme coverage, storage guards, and dependency policy are consistent.`);

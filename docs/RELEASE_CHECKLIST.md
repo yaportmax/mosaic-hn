@@ -2,9 +2,9 @@
 
 ## Automated source gates
 
-- [x] Core domain tests cover normalization, networking, ranking, rules, comments, discovery, exports, repositories, preferences, and themes.
+- [x] Core domain tests cover normalization, networking, ranking, rules, comments, discovery, exports, repositories, preferences, themes, module configuration, module runtime composition, and capability ownership.
 - [x] Built-in theme validation is automated.
-- [x] Source integrity checks reject missing release files, unfinished markers, telemetry packages, and excluded hosted-intelligence dependencies.
+- [x] Source integrity checks reject missing release files, unfinished markers, telemetry packages, excluded hosted-intelligence dependencies, incomplete module routes, and missing recovery contracts.
 - [x] GitHub Actions is configured to run tests, strict dependency-aware TypeScript checking, theme validation, source verification, Expo Doctor, and production export after publication.
 
 ## Publisher setup
@@ -24,6 +24,10 @@
 - [ ] Capture cold-start and steady-state memory traces across repeated feed/story/comment navigation.
 - [ ] Test every built-in theme in light, dark, and applicable high-contrast modes.
 - [ ] Import malformed, oversized, incompatible, low-contrast, and hash-mismatched theme packages.
+- [ ] Enable and disable every non-required module and confirm all owned navigation, commands, settings, gestures, queries, writes, and network work follow the active setup.
+- [ ] Verify dependency cascades, required recovery modules, hidden placements, home-screen changes, Tab/More ordering, phone overflow, and wide-tablet sidebar behavior.
+- [ ] Import malformed, oversized, unsupported-version, unknown-module, dependency-incomplete, and no-visible-tab module setups and confirm deterministic recovery.
+- [ ] Re-enable disabled modules and confirm retained library, archive, ranking, automation, theme, comment, and discovery state returns without data loss.
 
 ## Store material
 

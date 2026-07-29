@@ -1,9 +1,11 @@
 # Mosaic HN
 
-Mosaic HN is a free, MIT-licensed Hacker News reader for iPhone, iPad, and Android. It is local-first, has no Mosaic account or proprietary backend, and treats themes as complete declarative visual wrappers rather than simple color palettes.
+Mosaic HN is a free, MIT-licensed Hacker News reader for iPhone, iPad, and Android. It is local-first, has no Mosaic account or proprietary backend, and is built as a configurable collection of feature modules rather than one fixed interface. Themes are complete declarative visual wrappers rather than simple color palettes.
 
 ## What is included
 
+- A complete user-facing module system: enable or disable feature modules, place them in Tabs, More, or Hidden, order each destination, choose the home screen, and exchange complete setups as validated JSON.
+- Required recovery guarantees, dependency-aware module toggles, and behavioral gates that stop disabled modules' network, storage, command, gesture, and presentation work.
 - Top, New, Best, Ask, Show, and Jobs feeds from the official Hacker News API.
 - Cached-first loading, SQLite WAL storage, full-text search, and offline discussion access.
 - Local time travel through one observed snapshot per feed per UTC day, retained for up to 365 days.
@@ -14,8 +16,8 @@ Mosaic HN is a free, MIT-licensed Hacker News reader for iPhone, iPad, and Andro
 - Six substantially different built-in themes: Mosaic, Liquid, Classic, Paper, Terminal, and Neon.
 - Four feed layouts, three comment layouts, multiple navigation shells, platform overrides, accessibility variants, and a complete theme studio.
 - A safe community marketplace format based on static JSON registries and SHA-256 verified theme packages.
-- Configurable swipe, double-tap, long-press, tab order, command palette, iPad sidebar, and keyboard-friendly navigation.
-- No ads, analytics, subscription, cloud account, or downloaded executable theme code.
+- Configurable swipe, double-tap, long-press, registry-driven navigation, command palette, iPad sidebar, and keyboard-friendly controls.
+- No ads, analytics, subscription, cloud account, downloaded executable theme code, or downloaded executable module code.
 
 ## Technology
 
@@ -54,6 +56,7 @@ Windows can be the primary development machine. Local iOS compilation and the iO
 ```bash
 npm test
 npm run typecheck:core
+npm run typecheck:source
 npm run validate:themes
 npm run verify:source
 ```
@@ -70,6 +73,12 @@ Validate all bundled themes:
 npm run validate:themes
 ```
 
+## Module development
+
+Read [`docs/MODULES.md`](docs/MODULES.md). The app ships with navigation modules for Feed, Search, Library, Time Travel, Feed Algorithms, Filters & Automation, Themes, Settings, and Modules, plus capability modules for Comments and Discovery.
+
+The runtime registry controls module enablement, dependencies, placement, ordering, home routing, commands, settings, and owned data work. Portable setup files are declarative and safe to inspect. New executable feature modules are added through the open-source codebase and a reviewed app release rather than downloaded at runtime.
+
 ## Hacker News API boundaries
 
 The official API is read-only. Mosaic HN opens Hacker News web pages for voting, replying, and account actions. The API does not expose comment scores, so the app never invents them. Historical timelines and time-travel views are based on snapshots captured by the local installation rather than an undeclared archive service.
@@ -77,6 +86,7 @@ The official API is read-only. Mosaic HN opens Hacker News web pages for voting,
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [Modules](docs/MODULES.md)
 - [Privacy](docs/PRIVACY.md)
 - [Performance](docs/PERFORMANCE.md)
 - [Theme authoring](docs/THEME_AUTHORING.md)
