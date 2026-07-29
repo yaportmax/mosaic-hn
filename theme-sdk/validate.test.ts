@@ -29,3 +29,37 @@ test('resolveTheme applies dark fallback and accessibility overrides', () => {
   assert.equal(resolved.tokens.effects.glass, false);
   assert.ok(resolved.tokens.shape.borderWidth >= 1);
 });
+
+test('validateThemePackage rejects unsupported typography and non-boolean effects', () => {
+  const bad = structuredClone(theme) as unknown as Record<string, unknown>;
+  const light = ((bad.tokens as Record<string, unknown>).light as Record<string, unknown>);
+  const typography = light.typography as Record<string, unknown>;
+  typography.fontFamily = 'comic-sans';
+  typography.titleWeight = '900';
+  (light.effects as Record<string, unknown>).glass = 'yes';
+  const issues = validateThemePackage(bad, { appVersion: '1.0.0' });
+  assert.ok(issues.some((issue) => issue.path === 'tokens.light.typography.fontFamily'));
+  assert.ok(issues.some((issue) => issue.path === 'tokens.light.typography.titleWeight'));
+  assert.ok(issues.some((issue) => issue.path === 'tokens.light.effects.glass'));
+});
+
+test('validateThemePackage composites alpha before checking text contrast', () => {
+  const bad = structuredClone(theme) as unknown as Record<string, unknown>;
+  const light = ((bad.tokens as Record<string, unknown>).light as Record<string, unknown>);
+  (light.colors as Record<string, unknown>).text = '#00000000';
+  const issues = validateThemePackage(bad, { appVersion: '1.0.0' });
+  assert.ok(issues.some((issue) => issue.path === 'tokens.light.colors.text' && issue.code === 'contrast'));
+});
+
+test('validateThemePackage enforces bounded metadata and optional color formats', () => {
+  const bad = structuredClone(theme) as unknown as Record<string, unknown>;
+  const manifest = bad.manifest as Record<string, unknown>;
+  manifest.name = 'x'.repeat(61);
+  manifest.description = 'x'.repeat(401);
+  const light = ((bad.tokens as Record<string, unknown>).light as Record<string, unknown>);
+  (light.colors as Record<string, unknown>).elevated = 'transparent';
+  const issues = validateThemePackage(bad, { appVersion: '1.0.0' });
+  assert.ok(issues.some((issue) => issue.path === 'manifest.name' && issue.code === 'range'));
+  assert.ok(issues.some((issue) => issue.path === 'manifest.description' && issue.code === 'range'));
+  assert.ok(issues.some((issue) => issue.path === 'tokens.light.colors.elevated' && issue.code === 'format'));
+});

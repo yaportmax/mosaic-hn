@@ -50,6 +50,26 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
     return row ? JSON.parse(row.value) as T : undefined;
   }
 
+  async getMany<T>(table: string, keys: readonly string[]): Promise<Array<KeyValueRecord<T>>> {
+    const uniqueKeys = [...new Set(keys)];
+    if (uniqueKeys.length === 0) return [];
+    const byKey = new Map<string, T>();
+    for (let offset = 0; offset < uniqueKeys.length; offset += 400) {
+      const chunk = uniqueKeys.slice(offset, offset + 400);
+      const placeholders = chunk.map(() => '?').join(', ');
+      const rows = await this.database.getAllAsync<KeyValueRow>(
+        `SELECT key, value FROM kv WHERE table_name = ? AND key IN (${placeholders})`,
+        table,
+        ...chunk
+      );
+      for (const row of rows) byKey.set(row.key, JSON.parse(row.value) as T);
+    }
+    return uniqueKeys.flatMap((key) => {
+      const value = byKey.get(key);
+      return value === undefined ? [] : [{ key, value }];
+    });
+  }
+
   async set<T>(table: string, key: string, value: T): Promise<void> {
     const serialized = JSON.stringify(value);
     await this.database.runAsync(
@@ -94,7 +114,9 @@ export class SQLiteDatabaseAdapter implements DatabaseAdapter {
 
   async transaction<T>(work: (transaction: DatabaseAdapter) => Promise<T>): Promise<T> {
     let output!: T;
-    await this.database.withTransactionAsync(async () => { output = await work(this); });
+    await this.database.withExclusiveTransactionAsync(async (transaction) => {
+      output = await work(new SQLiteDatabaseAdapter(transaction as SQLiteDatabase));
+    });
     return output;
   }
 

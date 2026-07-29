@@ -24,6 +24,16 @@ export class MemoryDatabaseAdapter implements DatabaseAdapter {
     return value === undefined ? undefined : structuredClone(value) as T;
   }
 
+  async getMany<T>(table: string, keys: readonly string[]): Promise<Array<KeyValueRecord<T>>> {
+    const records = this.table(table);
+    const output: Array<KeyValueRecord<T>> = [];
+    for (const key of new Set(keys)) {
+      const value = records.get(key);
+      if (value !== undefined) output.push({ key, value: structuredClone(value) as T });
+    }
+    return output;
+  }
+
   async set<T>(table: string, key: string, value: T): Promise<void> {
     this.table(table).set(key, structuredClone(value));
   }

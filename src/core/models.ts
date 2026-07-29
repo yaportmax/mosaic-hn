@@ -71,6 +71,13 @@ export interface StorySnapshot {
   rank: number;
 }
 
+export interface FeedArchiveRecord {
+  feed: FeedKind;
+  date: string;
+  capturedAt: number;
+  storyIds: number[];
+}
+
 export interface FeedWeights {
   recency: number;
   score: number;

@@ -18,6 +18,13 @@ test('safeRegex rejects oversized or invalid patterns instead of throwing', () =
   assert.ok(safeRegex('sql.*ite', 'i'));
 });
 
+test('safeRegex rejects common catastrophic backtracking shapes', () => {
+  assert.equal(safeRegex('(a+)+$'), null);
+  assert.equal(safeRegex('(.*)+'), null);
+  assert.equal(safeRegex('(\\w+\\s?)*'), null);
+  assert.ok(safeRegex('^sqlite\\b', 'i'));
+});
+
 test('applyRules combines hide, boost, tag, save, and queue actions deterministically', () => {
   const rules: FilterRule[] = [
     { id: 'b', name: 'boost', enabled: true, action: { type: 'boost', amount: 3 }, conditions: [{ type: 'keyword', value: 'sqlite' }] },

@@ -7,7 +7,7 @@
       "version": "1.0.0",
       "name": "Mosaic",
       "author": "Mosaic HN",
-      "downloadUrl": "builtin://mosaic.json",
+      "downloadUrl": "./builtin/mosaic.json",
       "sha256": "c88c18f1cfa3681cc7be78f9a7d994f450fa715c64f672371763dd75f2baf60a",
       "minAppVersion": "1.0.0"
     },
@@ -16,7 +16,7 @@
       "version": "1.0.0",
       "name": "Liquid",
       "author": "Mosaic HN",
-      "downloadUrl": "builtin://liquid.json",
+      "downloadUrl": "./builtin/liquid.json",
       "sha256": "fbaf695a804debe552d42795e6486500b734a458954df393f624daeb5b4ea581",
       "minAppVersion": "1.0.0"
     },
@@ -25,7 +25,7 @@
       "version": "1.0.0",
       "name": "Classic",
       "author": "Mosaic HN",
-      "downloadUrl": "builtin://classic.json",
+      "downloadUrl": "./builtin/classic.json",
       "sha256": "16e9712a75ece1ba4d61d5d6be3148501e42b97e7538f202441dfbdb862d3eb6",
       "minAppVersion": "1.0.0"
     },
@@ -34,7 +34,7 @@
       "version": "1.0.0",
       "name": "Paper",
       "author": "Mosaic HN",
-      "downloadUrl": "builtin://paper.json",
+      "downloadUrl": "./builtin/paper.json",
       "sha256": "7f683ef80334dccc61f42ab346aa649d716fc031e4791d292c442f9255b77b59",
       "minAppVersion": "1.0.0"
     },
@@ -43,7 +43,7 @@
       "version": "1.0.0",
       "name": "Terminal",
       "author": "Mosaic HN",
-      "downloadUrl": "builtin://terminal.json",
+      "downloadUrl": "./builtin/terminal.json",
       "sha256": "1679ec53fc040ee1470371c4123f8191d65dd5fa2b6e3def73b17df2a148da89",
       "minAppVersion": "1.0.0"
     },
@@ -52,7 +52,7 @@
       "version": "1.0.0",
       "name": "Neon",
       "author": "Mosaic HN",
-      "downloadUrl": "builtin://neon.json",
+      "downloadUrl": "./builtin/neon.json",
       "sha256": "355158ace6ffd2247cc6d47fe8f709a21671011e206612c22acc0430e5be8eca",
       "minAppVersion": "1.0.0"
     }

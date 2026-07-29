@@ -52,7 +52,7 @@ export const DEFAULT_PREFERENCES: AppPreferences = Object.freeze({
   preloadComments: true,
   showRankingExplanations: false,
   compactNumbers: true,
-  gestures: Object.freeze({ swipeLeft: 'save', swipeRight: 'open', longPress: 'queue', doubleTap: 'save' }),
+  gestures: Object.freeze({ swipeLeft: 'save', swipeRight: 'open', longPress: 'queue', doubleTap: 'none' }),
   tabOrder: Object.freeze(['feed', 'search', 'library', 'themes', 'settings']),
   remoteThemeRegistryUrl: ''
 }) as AppPreferences;

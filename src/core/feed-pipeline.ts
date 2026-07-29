@@ -45,7 +45,8 @@ export function buildFeedView(
   rules: readonly FilterRule[],
   context: FeedPipelineContext
 ): FeedViewResult {
-  const ranked = rankStories(stories, preset, { nowSeconds: context.nowSeconds, snapshots: context.snapshots });
+  const rankingContext = context.snapshots ? { nowSeconds: context.nowSeconds, snapshots: context.snapshots } : { nowSeconds: context.nowSeconds };
+  const ranked = rankStories(stories, preset, rankingContext);
   const hiddenStoryIds: number[] = [];
   const automation: FeedAutomationAction[] = [];
   const items: FeedViewItem[] = [];

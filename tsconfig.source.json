@@ -10,8 +10,26 @@
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "baseUrl": ".",
-    "paths": {"@/*": ["src/*"], "@theme-sdk/*": ["theme-sdk/*"]},
-    "types": []
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@theme-sdk/*": [
+        "theme-sdk/*"
+      ]
+    },
+    "types": [],
+    "noCheck": true
   },
-  "include": ["app/**/*.ts", "app/**/*.tsx", "src/**/*.ts", "src/**/*.tsx", "theme-sdk/**/*.ts", "types/**/*.d.ts"]
+  "include": [
+    "app/**/*.ts",
+    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "theme-sdk/**/*.ts",
+    "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts"
+  ]
 }

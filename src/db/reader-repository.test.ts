@@ -23,7 +23,7 @@ test('refreshFeed persists a cached feed, items, and local snapshots', async () 
   assert.deepEqual(refreshed.map((item) => item.id), [1, 2]);
   assert.deepEqual((await repo.getCachedFeed('top')).map((item) => item.id), [1, 2]);
   assert.equal((await repo.getLatestSnapshots([1])).get(1)?.capturedAt, 5_000);
-  now = 6_000;
+  now = 7_000;
   await repo.refreshFeed('top', { limit: 1 });
   assert.equal((await repo.getStoryTimeline(1)).length, 2);
 });
@@ -91,4 +91,128 @@ test('library history and hidden items are queryable without a remote service', 
   assert.equal(await repo.isHidden(1), true);
   await repo.setHidden(1, false);
   assert.equal(await repo.isHidden(1), false);
+});
+
+test('custom feed presets can be removed without deleting the built-in balanced fallback', async () => {
+  const repo = new ReaderRepository(new MemoryDatabaseAdapter(), new FakeGateway(), () => 5_000);
+  await repo.savePreset({ id: 'systems', name: 'Systems', weights: { recency: 1, score: 1, discussion: 1, growth: 1, preferred: 1, keyword: 2 }, recencyHalfLifeHours: 24, preferredDomains: [], preferredAuthors: [], preferredKeywords: ['sqlite'] });
+  assert.equal(await repo.deletePreset('systems'), true);
+  assert.equal(await repo.deletePreset('missing'), false);
+  assert.deepEqual((await repo.listPresets()).map((preset) => preset.id), ['balanced']);
+});
+
+test('the balanced feed preset remains available alongside custom presets', async () => {
+  const repo = new ReaderRepository(new MemoryDatabaseAdapter(), new FakeGateway(), () => 5_000);
+  await repo.savePreset({ id: 'systems', name: 'Systems', weights: { recency: 1, score: 1, discussion: 1, growth: 1, preferred: 1, keyword: 2 }, recencyHalfLifeHours: 24, preferredDomains: [], preferredAuthors: [], preferredKeywords: ['sqlite'] });
+  assert.deepEqual((await repo.listPresets()).map((preset) => preset.id), ['balanced', 'systems']);
+});
+
+test('story and user refreshes fall back to cached records while offline', async () => {
+  const db = new MemoryDatabaseAdapter();
+  const online = new ReaderRepository(db, new FakeGateway(), () => 5_000);
+  await online.saveItems([story(1, 'Cached story')]);
+  await online.getUser('alice');
+  class OfflineGateway extends FakeGateway {
+    override async getItem(): Promise<HnItem | null> { throw new Error('offline'); }
+    override async getUser(): Promise<HnUser | null> { throw new Error('offline'); }
+  }
+  const offline = new ReaderRepository(db, new OfflineGateway(), () => 6_000);
+  assert.equal((await offline.getStory(1, { refresh: true }))?.title, 'Cached story');
+  assert.equal((await offline.getUser('alice', { refresh: true }))?.id, 'alice');
+});
+
+test('cached feed hydration batches item reads instead of issuing one query per story', async () => {
+  class CountingAdapter extends MemoryDatabaseAdapter {
+    itemGets = 0;
+    itemBatchGets = 0;
+    override async get<T>(table: string, key: string): Promise<T | undefined> {
+      if (table === 'items') this.itemGets += 1;
+      return super.get<T>(table, key);
+    }
+    override async getMany<T>(table: string, keys: readonly string[]) {
+      if (table === 'items') this.itemBatchGets += 1;
+      return super.getMany<T>(table, keys);
+    }
+  }
+
+  const db = new CountingAdapter();
+  const repo = new ReaderRepository(db, new FakeGateway(), () => 5_000);
+  await repo.refreshFeed('top');
+  db.itemGets = 0;
+  db.itemBatchGets = 0;
+
+  assert.deepEqual((await repo.getCachedFeed('top')).map((item) => item.id), [1, 2]);
+  assert.equal(db.itemBatchGets, 1);
+  assert.equal(db.itemGets, 0);
+});
+
+test('story snapshots are rate-limited and bounded to prevent unbounded local growth', async () => {
+  let now = 5_000;
+  const repo = new ReaderRepository(new MemoryDatabaseAdapter(), new FakeGateway(), () => now);
+  await repo.refreshFeed('top', { limit: 1 });
+  now = 5_500;
+  await repo.refreshFeed('top', { limit: 1 });
+  assert.equal((await repo.getStoryTimeline(1)).length, 1);
+
+  for (let index = 1; index <= 260; index += 1) {
+    now = 5_000 + index * 1_800;
+    await repo.refreshFeed('top', { limit: 1 });
+  }
+  const timeline = await repo.getStoryTimeline(1);
+  assert.equal(timeline.length, 256);
+  assert.equal(timeline.at(-1)?.capturedAt, now);
+});
+
+test('refreshFeed archives one bounded snapshot per UTC day for local time travel', async () => {
+  let now = Date.UTC(2026, 0, 1, 12) / 1_000;
+  const gateway = new FakeGateway();
+  const repo = new ReaderRepository(new MemoryDatabaseAdapter(), gateway, () => now);
+
+  await repo.refreshFeed('top');
+  gateway.feeds.set('top', [2]);
+  now += 3_600;
+  await repo.refreshFeed('top');
+
+  let archive = await repo.listFeedArchive('top');
+  assert.equal(archive.length, 1);
+  assert.equal(archive[0]?.date, '2026-01-01');
+  assert.deepEqual((await repo.getArchivedFeed('top', '2026-01-01')).stories.map((item) => item.id), [2]);
+
+  for (let day = 1; day <= 370; day += 1) {
+    now = Date.UTC(2026, 0, 1 + day, 12) / 1_000;
+    await repo.refreshFeed('top', { limit: 1 });
+  }
+  archive = await repo.listFeedArchive('top');
+  assert.equal(archive.length, 365);
+  assert.equal(archive[0]?.date, '2027-01-06');
+  assert.equal(archive.at(-1)?.date, '2026-01-07');
+});
+
+test('loadDiscussion can hydrate cached branches without issuing network requests', async () => {
+  class CountingGateway extends FakeGateway {
+    itemRequests = 0;
+    override async getItems(ids: readonly number[]): Promise<HnItem[]> {
+      this.itemRequests += ids.length;
+      return super.getItems(ids);
+    }
+  }
+  const gateway = new CountingGateway();
+  const repo = new ReaderRepository(new MemoryDatabaseAdapter(), gateway, () => 5_000);
+  const root = story(1, 'Story', [10]);
+  await repo.saveItems([comment(10, 1, [11])]);
+  const batches: number[][] = [];
+  const comments = await repo.loadDiscussion(root, { cachedOnly: true, onBatch: (batch) => batches.push(batch.map((item) => item.id)) });
+  assert.deepEqual([...comments.keys()], [10]);
+  assert.deepEqual(batches, [[10]]);
+  assert.equal(gateway.itemRequests, 0);
+});
+
+test('getFlaggedIds returns only currently saved item identifiers', async () => {
+  const repo = new ReaderRepository(new MemoryDatabaseAdapter(), new FakeGateway(), () => 5_000);
+  await repo.setBookmark(1, true);
+  await repo.setBookmark(2, true);
+  await repo.setBookmark(1, false);
+  await repo.setQueue(10, true);
+  assert.deepEqual([...await repo.getFlaggedIds('bookmarks')], [2]);
+  assert.deepEqual([...await repo.getFlaggedIds('queue')], [10]);
 });

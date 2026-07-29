@@ -1,6 +1,6 @@
 # Mosaic HN Design Specification
 
-Mosaic HN is a free, MIT-licensed, local-first Hacker News reader for iOS, Android, iPad, and web. Its defining feature is a safe declarative theme/layout platform capable of making one installation look and behave like substantially different Hacker News clients.
+Mosaic HN is a free, MIT-licensed, local-first Hacker News reader for iPhone, iPad, and Android. Its defining feature is a safe declarative theme/layout platform capable of making one installation look and behave like substantially different Hacker News clients.
 
 ## Principles
 
@@ -14,7 +14,7 @@ Mosaic HN is a free, MIT-licensed, local-first Hacker News reader for iOS, Andro
 
 ## Platform
 
-Expo SDK 56, React Native 0.85, React 19.2, Hermes, New Architecture, iOS 16.4+, Android 7+, API 36, responsive iPad/tablet support.
+Expo SDK 57, React Native 0.86, React 19.2, Hermes, New Architecture, iOS 16.4+, Android 7+, API 36, responsive iPad/tablet support.
 
 ## Included capabilities
 

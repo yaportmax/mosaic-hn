@@ -6,7 +6,7 @@
 
 **Architecture:** Expo Router owns native navigation; SQLite repositories own persistence; pure core modules own API normalization, ranking, filtering, comment trees, discovery, export, and theme validation. FlashList renders immutable view models; small external stores isolate preference updates.
 
-**Tech Stack:** Expo SDK 56, React Native 0.85, React 19.2, TypeScript, Expo Router, Expo SQLite, FlashList v2, Reanimated, Gesture Handler, Expo Glass Effect, Haptics, FileSystem, Sharing, and DocumentPicker.
+**Tech Stack:** Expo SDK 57, React Native 0.86, React 19.2, TypeScript, Expo Router, Expo SQLite, FlashList v2, Reanimated, Gesture Handler, Expo Glass Effect, Haptics, FileSystem, Sharing, and DocumentPicker.
 
 ## Tasks
 

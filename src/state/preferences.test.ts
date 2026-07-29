@@ -24,3 +24,7 @@ test('preferences update gestures and reset to defaults', async () => {
   await controller.reset();
   assert.deepEqual(controller.getSnapshot(), DEFAULT_PREFERENCES);
 });
+
+test('default gestures preserve instant single-tap navigation', () => {
+  assert.equal(DEFAULT_PREFERENCES.gestures.doubleTap, 'none');
+});

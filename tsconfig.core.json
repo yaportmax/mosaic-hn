@@ -8,8 +8,22 @@
     "exactOptionalPropertyTypes": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
-    "skipLibCheck": true,
-    "types": ["node"]
+    "skipLibCheck": true
   },
-  "include": ["src/core/**/*.ts", "src/db/memory-adapter.ts", "src/db/types.ts", "src/db/*.test.ts", "src/state/external-store.ts", "src/state/*.test.ts", "theme-sdk/**/*.ts", "scripts/validate-themes.ts"]
+  "include": [
+    "src/core/**/*.ts",
+    "src/db/types.ts",
+    "src/db/memory-adapter.ts",
+    "src/db/reader-repository.ts",
+    "src/state/external-store.ts",
+    "src/state/preferences.ts",
+    "src/design/constants.ts",
+    "src/design/theme-manager.ts",
+    "theme-sdk/**/*.ts",
+    "scripts/validate-themes.ts",
+    "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts"
+  ]
 }

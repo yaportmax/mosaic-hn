@@ -8,33 +8,76 @@
   "properties": {
     "manifest": {
       "type": "object",
+      "additionalProperties": false,
       "required": ["id", "name", "author", "version", "minAppVersion", "license"],
       "properties": {
-        "id": {"type":"string","pattern":"^[a-z0-9]+(?:[.-][a-z0-9]+)+$"},
-        "name": {"type":"string","minLength":1,"maxLength":60},
-        "author": {"type":"string","minLength":1,"maxLength":80},
-        "version": {"type":"string"},
-        "minAppVersion": {"type":"string"},
-        "license": {"type":"string","minLength":1},
-        "description": {"type":"string","maxLength":400},
-        "homepage": {"type":"string","format":"uri"},
-        "preview": {"type":"string"}
+        "id": {"type": "string", "minLength": 1, "maxLength": 120, "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)+$"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 60},
+        "author": {"type": "string", "minLength": 1, "maxLength": 80},
+        "version": {"type": "string", "maxLength": 40, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$"},
+        "minAppVersion": {"type": "string", "maxLength": 40, "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$"},
+        "license": {"type": "string", "minLength": 1, "maxLength": 40},
+        "description": {"type": "string", "maxLength": 400},
+        "homepage": {"type": "string", "maxLength": 500, "pattern": "^https?://"},
+        "preview": {"type": "string", "maxLength": 500}
       }
     },
-    "tokens": {"type":"object","required":["light"],"properties":{"light":{"$ref":"#/$defs/tokens"},"dark":{"$ref":"#/$defs/tokens"},"highContrastLight":{"$ref":"#/$defs/tokens"},"highContrastDark":{"$ref":"#/$defs/tokens"}}},
-    "layout": {"type":"object","required":["shell","feed","story","comments","navigation","metadata"],"properties":{"shell":{"enum":["tabs","floating-tabs","sidebar"]},"feed":{"enum":["compact","comfortable","cards","magazine"]},"story":{"enum":["line","row","card","editorial"]},"comments":{"enum":["threads","ledger","conversation"]},"navigation":{"enum":["standard","floating","minimal"]},"metadata":{"enum":["inline","stacked","footer"]}}}
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["light"],
+      "properties": {
+        "light": {"$ref": "#/$defs/tokens"},
+        "dark": {"$ref": "#/$defs/tokens"},
+        "highContrastLight": {"$ref": "#/$defs/tokens"},
+        "highContrastDark": {"$ref": "#/$defs/tokens"}
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["shell", "feed", "story", "comments", "navigation", "metadata"],
+      "properties": {
+        "shell": {"enum": ["tabs", "floating-tabs", "sidebar"]},
+        "feed": {"enum": ["compact", "comfortable", "cards", "magazine"]},
+        "story": {"enum": ["line", "row", "card", "editorial"]},
+        "comments": {"enum": ["threads", "ledger", "conversation"]},
+        "navigation": {"enum": ["standard", "floating", "minimal"]},
+        "metadata": {"enum": ["inline", "stacked", "footer"]}
+      }
+    }
   },
   "$defs": {
+    "color": {"type": "string", "pattern": "^#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?$"},
     "tokens": {
-      "type":"object",
-      "required":["colors","typography","spacing","shape","effects","motion"],
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["colors", "typography", "spacing", "shape", "effects", "motion"],
       "properties": {
-        "colors":{"type":"object"},
-        "typography":{"type":"object"},
-        "spacing":{"type":"object"},
-        "shape":{"type":"object"},
-        "effects":{"type":"object"},
-        "motion":{"type":"object"}
+        "colors": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["background", "surface", "text", "mutedText", "accent", "border", "success", "warning", "danger"],
+          "properties": {
+            "background": {"$ref": "#/$defs/color"}, "surface": {"$ref": "#/$defs/color"}, "text": {"$ref": "#/$defs/color"},
+            "mutedText": {"$ref": "#/$defs/color"}, "accent": {"$ref": "#/$defs/color"}, "border": {"$ref": "#/$defs/color"},
+            "success": {"$ref": "#/$defs/color"}, "warning": {"$ref": "#/$defs/color"}, "danger": {"$ref": "#/$defs/color"},
+            "elevated": {"$ref": "#/$defs/color"}, "overlay": {"$ref": "#/$defs/color"}
+          }
+        },
+        "typography": {
+          "type": "object", "additionalProperties": false,
+          "required": ["fontFamily", "monoFamily", "scale", "titleWeight", "bodyWeight"],
+          "properties": {
+            "fontFamily": {"enum": ["system", "rounded", "serif", "monospace"]}, "monoFamily": {"const": "monospace"},
+            "scale": {"type": "number", "minimum": 0.75, "maximum": 1.75},
+            "titleWeight": {"enum": ["400", "500", "600", "700", "800"]}, "bodyWeight": {"enum": ["400", "500", "600", "700", "800"]}
+          }
+        },
+        "spacing": {"type": "object", "additionalProperties": false, "required": ["unit", "density"], "properties": {"unit": {"type": "number", "minimum": 2, "maximum": 12}, "density": {"type": "number", "minimum": 0.65, "maximum": 1.5}}},
+        "shape": {"type": "object", "additionalProperties": false, "required": ["radius", "borderWidth"], "properties": {"radius": {"type": "number", "minimum": 0, "maximum": 40}, "borderWidth": {"type": "number", "minimum": 0, "maximum": 4}}},
+        "effects": {"type": "object", "additionalProperties": false, "required": ["glass", "blur", "shadow"], "properties": {"glass": {"type": "boolean"}, "blur": {"type": "number", "minimum": 0, "maximum": 100}, "shadow": {"type": "number", "minimum": 0, "maximum": 1}}},
+        "motion": {"type": "object", "additionalProperties": false, "required": ["durationScale", "springDamping"], "properties": {"durationScale": {"type": "number", "minimum": 0, "maximum": 2}, "springDamping": {"type": "number", "minimum": 1, "maximum": 40}}}
       }
     }
   }

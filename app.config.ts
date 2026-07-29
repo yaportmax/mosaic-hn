@@ -4,6 +4,9 @@ const config: ExpoConfig = {
   name: 'Mosaic HN',
   slug: 'mosaic-hn',
   version: '1.0.0',
+  description: 'A local-first, deeply customizable, open-source Hacker News reader.',
+  githubUrl: 'https://github.com/yaportmax/mosaic-hn',
+  platforms: ['ios', 'android'],
   orientation: 'default',
   icon: './assets/icon.png',
   scheme: 'mosaichn',
@@ -11,30 +14,22 @@ const config: ExpoConfig = {
   newArchEnabled: true,
   ios: {
     supportsTablet: true,
-    bundleIdentifier: 'org.mosaichn.reader',
+    bundleIdentifier: 'com.maxyaport.mosaichn',
+    buildNumber: '1',
     deploymentTarget: '16.4',
-    infoPlist: {
-      ITSAppUsesNonExemptEncryption: false,
-      UIFileSharingEnabled: true,
-      LSSupportsOpeningDocumentsInPlace: true
-    },
+    config: { usesNonExemptEncryption: false },
     privacyManifests: {
       NSPrivacyAccessedAPITypes: []
     }
   },
   android: {
-    package: 'org.mosaichn.reader',
+    package: 'com.maxyaport.mosaichn',
+    versionCode: 1,
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#F36C21'
     },
-    edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: true
-  },
-  web: {
-    bundler: 'metro',
-    output: 'static',
-    favicon: './assets/favicon.png'
   },
   plugins: [
     'expo-router',
@@ -42,11 +37,8 @@ const config: ExpoConfig = {
     ['expo-sqlite', { enableFTS: true, useSQLCipher: false }],
     'expo-document-picker'
   ],
-  experiments: { typedRoutes: true, reactCompiler: true },
-  extra: {
-    themeRegistryUrl: '',
-    eas: { projectId: 'REPLACE_WITH_EAS_PROJECT_ID' }
-  }
+  experiments: { typedRoutes: true },
+  extra: { themeRegistryUrl: '', sourceRepository: 'https://github.com/yaportmax/mosaic-hn' }
 };
 
 export default config;

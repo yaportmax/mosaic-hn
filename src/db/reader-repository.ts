@@ -1,4 +1,4 @@
-import type { Comment, FeedKind, FeedPreset, FilterRule, HnItem, HnUser, LibraryExportV1, Story, StorySnapshot } from '../core/models.ts';
+import type { CollectionRecord, Comment, FeedArchiveRecord, FeedKind, FeedPreset, FilterRule, HnItem, HnUser, LibraryExportV1, Story, StorySnapshot } from '../core/models.ts';
 import { DEFAULT_FEED_PRESET } from '../core/ranking.ts';
 import type { DatabaseAdapter } from './types.ts';
 
@@ -14,7 +14,6 @@ interface TimestampRecord { createdAt: number }
 interface VisitRecord { visitedAt: number }
 interface NoteValue { itemId: number; body: string; updatedAt: number }
 interface TagValue { itemId: number; tags: string[] }
-interface StoredCollection { id: string; name: string; createdAt: number; updatedAt: number; itemIds: number[] }
 
 export interface RefreshFeedOptions { limit?: number; signal?: AbortSignal }
 export interface RepositoryAutomationAction { itemId: number; save: boolean; queue: boolean; tags: string[] }
@@ -22,12 +21,17 @@ export interface LoadDiscussionOptions {
   batchSize?: number;
   maxComments?: number;
   signal?: AbortSignal;
+  cachedOnly?: boolean;
   onBatch?: (comments: Comment[]) => void;
 }
 
 const numericKey = (id: number): string => String(id);
-const isStory = (item: HnItem): item is Story => item.kind === 'story';
-const isComment = (item: HnItem): item is Comment => item.kind === 'comment';
+const isStory = (item: HnItem | undefined): item is Story => item?.kind === 'story';
+const isComment = (item: HnItem | undefined): item is Comment => item?.kind === 'comment';
+const SNAPSHOT_MIN_INTERVAL_SECONDS = 30 * 60;
+const MAX_STORY_SNAPSHOTS = 256;
+const MAX_FEED_ARCHIVE_DAYS = 365;
+const utcDate = (timestampSeconds: number): string => new Date(timestampSeconds * 1_000).toISOString().slice(0, 10);
 
 export class ReaderRepository {
   private readonly db: DatabaseAdapter;
@@ -62,16 +66,31 @@ export class ReaderRepository {
   async getCachedFeed(feed: FeedKind, limit = 120): Promise<Story[]> {
     const cache = await this.db.get<FeedCacheRecord>('feeds', feed);
     if (!cache) return [];
-    const output: Story[] = [];
-    for (const id of cache.ids.slice(0, Math.max(0, limit))) {
-      const story = await this.getCachedStory(id);
-      if (story) output.push(story);
-    }
-    return output;
+    const ids = cache.ids.slice(0, Math.max(0, limit));
+    return (await this.db.getMany<HnItem>('items', ids.map(numericKey)))
+      .map((record) => record.value)
+      .filter(isStory);
   }
 
   async getFeedFetchedAt(feed: FeedKind): Promise<number | undefined> {
     return (await this.db.get<FeedCacheRecord>('feeds', feed))?.fetchedAt;
+  }
+
+  async listFeedArchive(feed?: FeedKind): Promise<FeedArchiveRecord[]> {
+    const records = await this.db.scan<FeedArchiveRecord>('feed-archive', feed ? `${feed}:` : undefined);
+    return records
+      .map((record) => record.value)
+      .sort((a, b) => b.capturedAt - a.capturedAt || b.date.localeCompare(a.date) || a.feed.localeCompare(b.feed));
+  }
+
+  async getArchivedFeed(feed: FeedKind, date: string): Promise<{ record?: FeedArchiveRecord; stories: Story[] }> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { stories: [] };
+    const record = await this.db.get<FeedArchiveRecord>('feed-archive', `${feed}:${date}`);
+    if (!record) return { stories: [] };
+    const stories = (await this.db.getMany<HnItem>('items', record.storyIds.map(numericKey)))
+      .map((item) => item.value)
+      .filter(isStory);
+    return { record, stories };
   }
 
   async refreshFeed(feed: FeedKind, options: RefreshFeedOptions = {}): Promise<Story[]> {
@@ -80,14 +99,31 @@ export class ReaderRepository {
     const fetched = await this.gateway.getItems(ids, options.signal);
     const byId = new Map(fetched.filter(isStory).map((story) => [story.id, story]));
     const stories = ids.map((id) => byId.get(id)).filter((story): story is Story => Boolean(story));
+    const existingTimelines = new Map(
+      (await this.db.getMany<StorySnapshot[]>('snapshots', stories.map((story) => numericKey(story.id))))
+        .map((record) => [Number(record.key), record.value] as const)
+    );
+    const archiveDate = utcDate(capturedAt);
+    const archiveKey = `${feed}:${archiveDate}`;
+    const staleArchiveKeys = (await this.db.scan<FeedArchiveRecord>('feed-archive', `${feed}:`))
+      .filter((record) => record.key !== archiveKey)
+      .sort((a, b) => b.value.capturedAt - a.value.capturedAt || b.key.localeCompare(a.key))
+      .slice(MAX_FEED_ARCHIVE_DAYS - 1)
+      .map((record) => record.key);
+
     await this.db.transaction(async (tx) => {
       for (const story of stories) await tx.set('items', numericKey(story.id), story);
       await tx.set<FeedCacheRecord>('feeds', feed, { ids: stories.map((story) => story.id), fetchedAt: capturedAt });
+      await tx.set<FeedArchiveRecord>('feed-archive', archiveKey, { feed, date: archiveDate, capturedAt, storyIds: stories.map((story) => story.id) });
+      for (const staleKey of staleArchiveKeys) await tx.delete('feed-archive', staleKey);
       for (let rank = 0; rank < stories.length; rank += 1) {
         const story = stories[rank];
         if (!story) continue;
+        const timeline = existingTimelines.get(story.id) ?? [];
+        const latest = timeline.at(-1);
+        if (latest && capturedAt - latest.capturedAt < SNAPSHOT_MIN_INTERVAL_SECONDS) continue;
         const snapshot: StorySnapshot = { itemId: story.id, capturedAt, score: story.score, descendants: story.descendants, rank: rank + 1 };
-        await tx.set('snapshots', `${story.id}:${capturedAt}:${rank + 1}`, snapshot);
+        await tx.set('snapshots', numericKey(story.id), [...timeline, snapshot].slice(-MAX_STORY_SNAPSHOTS));
       }
     });
     return stories;
@@ -96,78 +132,103 @@ export class ReaderRepository {
   async getStory(id: number, options: { refresh?: boolean; signal?: AbortSignal } = {}): Promise<Story | undefined> {
     const cached = await this.getCachedStory(id);
     if (cached && !options.refresh) return cached;
-    const item = await this.gateway.getItem(id, options.signal);
-    if (!item || item.kind !== 'story') return cached;
-    await this.db.set('items', numericKey(item.id), item);
-    return item;
+    try {
+      const item = await this.gateway.getItem(id, options.signal);
+      if (!item || item.kind !== 'story') return cached;
+      await this.db.set('items', numericKey(item.id), item);
+      return item;
+    } catch (reason) {
+      if (cached) return cached;
+      throw reason;
+    }
   }
 
   async getUser(id: string, options: { refresh?: boolean; signal?: AbortSignal } = {}): Promise<HnUser | undefined> {
     const key = id.trim().toLowerCase();
     const cached = await this.db.get<HnUser>('users', key);
     if (cached && !options.refresh) return cached;
-    const user = await this.gateway.getUser(id, options.signal);
-    if (!user) return cached;
-    await this.db.set('users', key, user);
-    return user;
+    try {
+      const user = await this.gateway.getUser(id, options.signal);
+      if (!user) return cached;
+      await this.db.set('users', key, user);
+      return user;
+    } catch (reason) {
+      if (cached) return cached;
+      throw reason;
+    }
   }
 
   async loadDiscussion(story: Story, options: LoadDiscussionOptions = {}): Promise<Map<number, Comment>> {
     const batchSize = Math.max(1, Math.min(50, Math.trunc(options.batchSize ?? 20)));
     const maxComments = Math.max(1, Math.min(10_000, Math.trunc(options.maxComments ?? 3_000)));
     const collected = new Map<number, Comment>();
-    const queued = new Set<number>();
-    const pending: number[] = [...story.kids];
-    const cachedBatch: Comment[] = [];
+    const discovered = new Set<number>();
 
-    while (pending.length > 0 && collected.size < maxComments) {
-      const id = pending.shift();
-      if (!id || queued.has(id)) continue;
-      queued.add(id);
-      const cached = await this.getCachedItem(id);
-      if (cached?.kind === 'comment') {
-        collected.set(id, cached);
-        cachedBatch.push(cached);
-        pending.push(...cached.kids);
+    const hydrateCached = async (seedIds: readonly number[]): Promise<{ cached: Comment[]; missing: number[] }> => {
+      const pending: number[] = [];
+      for (const id of seedIds) {
+        if (!discovered.has(id)) { discovered.add(id); pending.push(id); }
       }
-    }
-    if (cachedBatch.length > 0) options.onBatch?.(cachedBatch);
-
-    const missingQueue: number[] = [];
-    const discoverMissing = (ids: readonly number[]): void => {
-      for (const id of ids) if (!collected.has(id) && !missingQueue.includes(id)) missingQueue.push(id);
+      const cached: Comment[] = [];
+      const missing: number[] = [];
+      while (pending.length > 0 && collected.size < maxComments) {
+        const ids = pending.splice(0, batchSize);
+        const records = await this.db.getMany<HnItem>('items', ids.map(numericKey));
+        const byId = new Map(records.map((record) => [Number(record.key), record.value]));
+        for (const id of ids) {
+          const item = byId.get(id);
+          if (!item || !isComment(item)) { missing.push(id); continue; }
+          if (collected.has(item.id)) continue;
+          collected.set(item.id, item);
+          cached.push(item);
+          for (const childId of item.kids) {
+            if (!discovered.has(childId)) { discovered.add(childId); pending.push(childId); }
+          }
+          if (collected.size >= maxComments) break;
+        }
+      }
+      return { cached, missing };
     };
-    discoverMissing(story.kids);
-    for (const comment of collected.values()) discoverMissing(comment.kids);
+
+    const initial = await hydrateCached(story.kids);
+    if (initial.cached.length > 0) options.onBatch?.(initial.cached);
+    if (options.cachedOnly) return collected;
+    const missingQueue = [...initial.missing];
 
     while (missingQueue.length > 0 && collected.size < maxComments) {
       const ids = missingQueue.splice(0, batchSize);
       const fetched = (await this.gateway.getItems(ids, options.signal)).filter(isComment);
-      if (fetched.length > 0) {
-        await this.saveItems(fetched);
-        for (const comment of fetched) {
-          if (collected.has(comment.id)) continue;
-          collected.set(comment.id, comment);
-          discoverMissing(comment.kids);
-        }
-        options.onBatch?.(fetched);
+      if (fetched.length === 0) continue;
+      await this.saveItems(fetched);
+      const accepted: Comment[] = [];
+      const childIds: number[] = [];
+      for (const item of fetched) {
+        if (collected.has(item.id) || collected.size >= maxComments) continue;
+        collected.set(item.id, item);
+        accepted.push(item);
+        childIds.push(...item.kids);
       }
+      if (accepted.length > 0) options.onBatch?.(accepted);
+      const descendants = await hydrateCached(childIds);
+      if (descendants.cached.length > 0) options.onBatch?.(descendants.cached);
+      missingQueue.push(...descendants.missing);
     }
     return collected;
   }
 
   async getLatestSnapshots(ids: readonly number[]): Promise<Map<number, StorySnapshot>> {
     const output = new Map<number, StorySnapshot>();
-    for (const id of ids) {
-      const records = await this.db.scan<StorySnapshot>('snapshots', `${id}:`);
-      const latest = records.map((record) => record.value).sort((a, b) => b.capturedAt - a.capturedAt)[0];
-      if (latest) output.set(id, latest);
+    const records = await this.db.getMany<StorySnapshot[]>('snapshots', ids.map(numericKey));
+    for (const record of records) {
+      const latest = record.value.at(-1);
+      if (latest) output.set(Number(record.key), latest);
     }
     return output;
   }
 
   async getStoryTimeline(id: number): Promise<StorySnapshot[]> {
-    return (await this.db.scan<StorySnapshot>('snapshots', `${id}:`)).map((record) => record.value).sort((a, b) => a.capturedAt - b.capturedAt || a.rank - b.rank);
+    return [...((await this.db.get<StorySnapshot[]>('snapshots', numericKey(id))) ?? [])]
+      .sort((a, b) => a.capturedAt - b.capturedAt || a.rank - b.rank);
   }
 
   async recordVisit(itemId: number): Promise<number | undefined> {
@@ -249,37 +310,68 @@ export class ReaderRepository {
     });
   }
 
-  async saveCollection(collection: StoredCollection): Promise<void> { await this.db.set('collections', collection.id, collection); }
+  async saveCollection(collection: CollectionRecord): Promise<void> { await this.db.set('collections', collection.id, collection); }
+  async getCollection(id: string): Promise<CollectionRecord | undefined> { return this.db.get<CollectionRecord>('collections', id); }
   async deleteCollection(id: string): Promise<void> { await this.db.delete('collections', id); }
-  async listCollections(): Promise<StoredCollection[]> { return (await this.db.scan<StoredCollection>('collections')).map((record) => record.value).sort((a, b) => b.updatedAt - a.updatedAt); }
+  async listCollections(): Promise<CollectionRecord[]> { return (await this.db.scan<CollectionRecord>('collections')).map((record) => record.value).sort((a, b) => b.updatedAt - a.updatedAt); }
+  async addToCollection(id: string, itemId: number): Promise<CollectionRecord | undefined> {
+    const collection = await this.getCollection(id);
+    if (!collection) return undefined;
+    const next: CollectionRecord = { ...collection, updatedAt: this.now(), itemIds: [...new Set([...collection.itemIds, itemId])] };
+    await this.saveCollection(next);
+    return next;
+  }
+  async removeFromCollection(id: string, itemId: number): Promise<CollectionRecord | undefined> {
+    const collection = await this.getCollection(id);
+    if (!collection) return undefined;
+    const next: CollectionRecord = { ...collection, updatedAt: this.now(), itemIds: collection.itemIds.filter((value) => value !== itemId) };
+    await this.saveCollection(next);
+    return next;
+  }
 
   async savePreset(preset: FeedPreset): Promise<void> { await this.db.set('presets', preset.id, preset); }
+  async deletePreset(id: string): Promise<boolean> {
+    if (id === DEFAULT_FEED_PRESET.id) return false;
+    const existing = await this.db.get<FeedPreset>('presets', id);
+    if (!existing) return false;
+    await this.db.delete('presets', id);
+    return true;
+  }
   async listPresets(): Promise<FeedPreset[]> {
-    const custom = (await this.db.scan<FeedPreset>('presets')).map((record) => record.value);
-    return custom.length > 0 ? custom : [DEFAULT_FEED_PRESET];
+    const custom = (await this.db.scan<FeedPreset>('presets'))
+      .map((record) => record.value)
+      .filter((preset) => preset.id !== DEFAULT_FEED_PRESET.id)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    return [DEFAULT_FEED_PRESET, ...custom];
   }
   async saveRule(rule: FilterRule): Promise<void> { await this.db.set('rules', rule.id, rule); }
   async deleteRule(id: string): Promise<void> { await this.db.delete('rules', id); }
   async listRules(): Promise<FilterRule[]> { return (await this.db.scan<FilterRule>('rules')).map((record) => record.value); }
 
-  async searchStories(query: string, limit = 100): Promise<Story[]> {
+  async searchItems(query: string, limit = 100): Promise<HnItem[]> {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return [];
     const records = this.db.search
-      ? await this.db.search<HnItem>('items', normalized, limit * 2)
+      ? await this.db.search<HnItem>('items', normalized, limit * 3)
       : await this.db.scan<HnItem>('items');
     const seen = new Set<number>();
-    const output: Story[] = [];
+    const output: HnItem[] = [];
     for (const record of records) {
       const item = record.value;
-      if (item.kind !== 'story' || seen.has(item.id)) continue;
-      const haystack = `${item.title}\n${item.text ?? ''}\n${item.by}\n${item.domain ?? ''}`.toLowerCase();
+      if (seen.has(item.id)) continue;
+      const haystack = item.kind === 'story'
+        ? `${item.title}\n${item.text ?? ''}\n${item.by}\n${item.domain ?? ''}`.toLowerCase()
+        : `${item.text}\n${item.by}`.toLowerCase();
       if (!haystack.includes(normalized) && !this.db.search) continue;
       seen.add(item.id);
       output.push(item);
       if (output.length >= limit) break;
     }
-    return output.sort((a, b) => a.id - b.id);
+    return output;
+  }
+
+  async searchStories(query: string, limit = 100): Promise<Story[]> {
+    return (await this.searchItems(query, limit * 2)).filter(isStory).slice(0, limit).sort((a, b) => a.id - b.id);
   }
 
 
@@ -296,13 +388,15 @@ export class ReaderRepository {
   }
 
   async getRecentHistory(limit = 100): Promise<Story[]> {
-    const visits = await this.db.scan<VisitRecord>('visits');
-    const output: Array<{ story: Story; visitedAt: number }> = [];
-    for (const visit of visits) {
-      const story = await this.getCachedStory(Number(visit.key));
-      if (story) output.push({ story, visitedAt: visit.value.visitedAt });
-    }
-    return output.sort((a, b) => b.visitedAt - a.visitedAt || b.story.id - a.story.id).slice(0, Math.max(1, limit)).map((entry) => entry.story);
+    const visits = (await this.db.scan<VisitRecord>('visits'))
+      .filter((visit) => Number.isFinite(Number(visit.key)))
+      .sort((a, b) => b.value.visitedAt - a.value.visitedAt || Number(b.key) - Number(a.key))
+      .slice(0, Math.max(1, limit));
+    const items = new Map(
+      (await this.db.getMany<HnItem>('items', visits.map((visit) => visit.key)))
+        .map((record) => [record.key, record.value] as const)
+    );
+    return visits.map((visit) => items.get(visit.key)).filter(isStory);
   }
 
   async getSavedCommentIds(): Promise<Set<number>> {
@@ -310,12 +404,7 @@ export class ReaderRepository {
   }
 
   async getItems(ids: readonly number[]): Promise<HnItem[]> {
-    const output: HnItem[] = [];
-    for (const id of ids) {
-      const item = await this.getCachedItem(id);
-      if (item) output.push(item);
-    }
-    return output;
+    return (await this.db.getMany<HnItem>('items', ids.map(numericKey))).map((record) => record.value);
   }
 
   async getAllCachedStories(limit = 5_000): Promise<Story[]> {
@@ -323,21 +412,27 @@ export class ReaderRepository {
     return items.sort((a, b) => b.time - a.time || b.id - a.id).slice(0, limit);
   }
 
+  async getFlaggedIds(table: 'bookmarks' | 'queue'): Promise<Set<number>> {
+    return new Set((await this.db.scan<TimestampRecord>(table))
+      .map((record) => Number(record.key))
+      .filter((id) => Number.isSafeInteger(id) && id > 0)
+      .sort((a, b) => a - b));
+  }
+
   async getFlaggedStories(table: 'bookmarks' | 'queue'): Promise<Story[]> {
-    const flags = await this.db.scan<TimestampRecord>(table);
-    const output: Array<{ story: Story; createdAt: number }> = [];
-    for (const flag of flags) {
-      const story = await this.getCachedStory(Number(flag.key));
-      if (story) output.push({ story, createdAt: flag.value.createdAt });
-    }
-    return output.sort((a, b) => b.createdAt - a.createdAt).map((entry) => entry.story);
+    const flags = (await this.db.scan<TimestampRecord>(table)).sort((a, b) => b.value.createdAt - a.value.createdAt);
+    const items = new Map(
+      (await this.db.getMany<HnItem>('items', flags.map((flag) => flag.key)))
+        .map((record) => [record.key, record.value] as const)
+    );
+    return flags.map((flag) => items.get(flag.key)).filter(isStory);
   }
 
   async getLibraryExport(): Promise<LibraryExportV1> {
     const bookmarks = (await this.db.scan<TimestampRecord>('bookmarks')).map(({ key, value }) => ({ itemId: Number(key), createdAt: value.createdAt }));
     const queue = (await this.db.scan<TimestampRecord>('queue')).map(({ key, value }) => ({ itemId: Number(key), createdAt: value.createdAt }));
     const savedComments = (await this.db.scan<TimestampRecord>('saved-comments')).map(({ key, value }) => ({ itemId: Number(key), createdAt: value.createdAt }));
-    const collections = (await this.db.scan<StoredCollection>('collections')).map((record) => record.value);
+    const collections = (await this.db.scan<CollectionRecord>('collections')).map((record) => record.value);
     const notes = (await this.db.scan<NoteValue>('notes')).map((record) => record.value);
     const tags = (await this.db.scan<TagValue>('tags')).map((record) => record.value);
     const presets = (await this.db.scan<FeedPreset>('presets')).map((record) => record.value);

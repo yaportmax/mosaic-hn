@@ -1,0 +1,12 @@
+appId: org.mosaichn.reader
+---
+- launchApp
+- tapOn: "Themes"
+- assertVisible: "Themes"
+- tapOn: "Liquid"
+- assertVisible: "Liquid"
+- tapOn: "Use theme"
+- back
+- assertVisible: "Themes"
+- tapOn: "Settings"
+- assertVisible: "Settings"

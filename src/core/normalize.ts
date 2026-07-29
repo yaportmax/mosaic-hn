@@ -40,15 +40,14 @@ export function htmlToPlainText(input: string | undefined | null): string {
     .replace(/<\s*\/li\s*>/gi, '\n');
   const withoutTags = withBreaks.replace(/<[^>]*>/g, '');
   return withoutTags
-    .replace(/&([a-zA-Z]+|#\d+|#x[0-9a-fA-F]+);/g, (match, entity: string) => {
+    .replace(/&([a-zA-Z]+|#\d+|#[xX][0-9a-fA-F]+);/g, (match, entity: string) => {
       if (entity in entityMap) return entityMap[entity] ?? match;
-      if (entity.startsWith('#x')) {
-        const code = Number.parseInt(entity.slice(2), 16);
-        return Number.isFinite(code) ? String.fromCodePoint(code) : match;
-      }
-      if (entity.startsWith('#')) {
-        const code = Number.parseInt(entity.slice(1), 10);
-        return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+      const numericEntity = entity.startsWith('#');
+      if (numericEntity) {
+        const hexadecimal = entity[1]?.toLowerCase() === 'x';
+        const code = Number.parseInt(entity.slice(hexadecimal ? 2 : 1), hexadecimal ? 16 : 10);
+        const validCodePoint = Number.isInteger(code) && code >= 0 && code <= 0x10FFFF && !(code >= 0xD800 && code <= 0xDFFF);
+        return validCodePoint ? String.fromCodePoint(code) : match;
       }
       return match;
     })

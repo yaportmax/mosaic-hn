@@ -1,7 +1,21 @@
 import type { AppliedRules, FilterCondition, FilterRule, RuleContext, RuleEvaluation, Story } from './models.ts';
 
+const UNBOUNDED_QUANTIFIER = String.raw`(?:[*+]|\{\d+,\})`;
+const NESTED_UNBOUNDED_QUANTIFIER = new RegExp(
+  String.raw`\((?:\\.|[^()])*(?:${UNBOUNDED_QUANTIFIER})(?:\\.|[^()])*\)(?:${UNBOUNDED_QUANTIFIER})`
+);
+const QUANTIFIED_ALTERNATION = new RegExp(
+  String.raw`\((?:\\.|[^()])*\|(?:\\.|[^()])*\)(?:${UNBOUNDED_QUANTIFIER})`
+);
+
+function hasUnsafeBacktrackingShape(pattern: string): boolean {
+  return NESTED_UNBOUNDED_QUANTIFIER.test(pattern)
+    || QUANTIFIED_ALTERNATION.test(pattern)
+    || /\\[1-9]/.test(pattern);
+}
+
 export function safeRegex(pattern: string, flags = ''): RegExp | null {
-  if (!pattern || pattern.length > 256 || !/^[gimsuy]*$/.test(flags)) return null;
+  if (!pattern || pattern.length > 256 || !/^[gimsuy]*$/.test(flags) || hasUnsafeBacktrackingShape(pattern)) return null;
   try {
     return new RegExp(pattern, flags);
   } catch {

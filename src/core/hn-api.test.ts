@@ -33,3 +33,11 @@ test('HnClient returns an empty feed for malformed feed responses', async () => 
   const client = new HnClient({ fetcher });
   assert.deepEqual(await client.getFeedIds('top'), []);
 });
+
+test('HnClient times out stalled Hacker News requests', async () => {
+  const fetcher = ((_url: string | URL | Request, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { once: true });
+  })) as typeof fetch;
+  const client = new HnClient({ fetcher, requestTimeoutMs: 50 });
+  await assert.rejects(() => client.getFeedIds('top'), /timed out/i);
+});

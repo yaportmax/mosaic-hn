@@ -32,3 +32,8 @@ test('normalizeUser clamps invalid values and removes malformed submitted ids', 
     id: 'alice', created: 5, karma: 8, about: 'Hi', submitted: [1, 2]
   });
 });
+
+test('htmlToPlainText preserves invalid numeric entities instead of throwing', () => {
+  assert.equal(htmlToPlainText('before &#9999999999; after'), 'before &#9999999999; after');
+  assert.equal(htmlToPlainText('hex &#x110000; value'), 'hex &#x110000; value');
+});
