@@ -5,12 +5,16 @@ on:
     branches: [main]
     paths:
       - .github/workflows/bootstrap-source.yml
+  pull_request_target:
+    types: [opened, reopened, synchronize]
 
 permissions:
   contents: write
+  pull-requests: read
 
 jobs:
   publish-source:
+    if: github.event_name == 'push' || github.actor == 'yaportmax'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
