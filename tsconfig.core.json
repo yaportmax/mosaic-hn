@@ -19,6 +19,7 @@
     "src/state/preferences.ts",
     "src/design/constants.ts",
     "src/design/theme-manager.ts",
+    "module-sdk/**/*.ts",
     "theme-sdk/**/*.ts",
     "scripts/validate-themes.ts",
     "types/**/*.d.ts"
