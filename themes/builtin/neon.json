@@ -1,0 +1,95 @@
+{
+  "manifest": {
+    "id": "org.mosaichn.neon",
+    "name": "Neon",
+    "author": "Mosaic HN",
+    "version": "1.0.0",
+    "minAppVersion": "1.0.0",
+    "license": "MIT",
+    "description": "Expressive high-contrast cards, vivid accents, and energetic motion."
+  },
+  "tokens": {
+    "light": {
+      "colors": {
+        "background": "#FFF7FE",
+        "surface": "#FFFFFF",
+        "text": "#1C1020",
+        "mutedText": "#63506A",
+        "accent": "#B51FCB",
+        "border": "#E5BDEB",
+        "success": "#087E63",
+        "warning": "#8A5700",
+        "danger": "#B51E3D"
+      },
+      "typography": {
+        "fontFamily": "rounded",
+        "monoFamily": "monospace",
+        "scale": 1.02,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 5,
+        "density": 1.02
+      },
+      "shape": {
+        "radius": 24,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0.24
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 14
+      }
+    },
+    "dark": {
+      "colors": {
+        "background": "#0C0611",
+        "surface": "#1A0D22",
+        "text": "#FFF3FF",
+        "mutedText": "#CDAFD3",
+        "accent": "#F25CFF",
+        "border": "#573063",
+        "success": "#44D5A5",
+        "warning": "#FFD166",
+        "danger": "#FF6B8A"
+      },
+      "typography": {
+        "fontFamily": "rounded",
+        "monoFamily": "monospace",
+        "scale": 1.02,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 5,
+        "density": 1.02
+      },
+      "shape": {
+        "radius": 24,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0.42
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 14
+      }
+    }
+  },
+  "layout": {
+    "shell": "floating-tabs",
+    "feed": "cards",
+    "story": "card",
+    "comments": "conversation",
+    "navigation": "floating",
+    "metadata": "footer"
+  }
+}
