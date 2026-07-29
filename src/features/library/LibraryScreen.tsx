@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import { useLibraryData } from '../../hooks/useLibraryData.ts';
-import { useAppServices, usePreferences } from '../../app/AppServices.tsx';
+import { useAppServices, useModuleEnabled, usePreferences } from '../../app/AppServices.tsx';
 import { shareTextFile } from '../../app/file-exchange.ts';
 import { exportLibraryJson } from '../../core/exports.ts';
 import { formatRelativeTime, hnItemUrl } from '../../core/format.ts';
@@ -25,10 +25,14 @@ export function LibraryScreen() {
   const data = useLibraryData();
   const { database } = useAppServices();
   const preferences = usePreferences();
+  const commentsEnabled = useModuleEnabled('comments');
+  const archiveEnabled = useModuleEnabled('archive');
   const { theme } = useThemeRuntime();
   const [category, setCategory] = useState<Category>('bookmarks');
   const [creating, setCreating] = useState(false);
   const [collectionName, setCollectionName] = useState('');
+  const visibleCategories = commentsEnabled ? categories : categories.filter((item) => item !== 'comments');
+  useEffect(() => { if (!commentsEnabled && category === 'comments') setCategory('bookmarks'); }, [category, commentsEnabled]);
 
   const exportAll = async () => {
     const payload = await database.repository.getLibraryExport();
@@ -51,8 +55,8 @@ export function LibraryScreen() {
   };
 
   return <Screen edges={['top']}>
-    <ScreenHeader title="Library" subtitle="Bookmarks, collections, notes, and offline history" actions={<><IconButton icon="calendar-outline" label="Open local archive" onPress={() => router.push('/archive')} /><IconButton icon="share-outline" label="Export library" onPress={() => void exportAll().catch((error) => Alert.alert('Export failed', error.message))} /></>} />
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>{categories.map((item) => <Chip key={item} label={item[0]!.toUpperCase() + item.slice(1)} selected={category === item} onPress={() => setCategory(item)} />)}</ScrollView>
+    <ScreenHeader title="Library" subtitle="Bookmarks, collections, notes, and offline history" actions={<>{archiveEnabled ? <IconButton icon="calendar-outline" label="Open local archive" onPress={() => router.push('/archive')} /> : null}<IconButton icon="share-outline" label="Export library" onPress={() => void exportAll().catch((error) => Alert.alert('Export failed', error.message))} /></>} />
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>{visibleCategories.map((item) => <Chip key={item} label={item[0]!.toUpperCase() + item.slice(1)} selected={category === item} onPress={() => setCategory(item)} />)}</ScrollView>
     {data.loading ? <LoadingState label="Opening your library…" /> : <ScrollView contentContainerStyle={styles.content}>
       {category === 'bookmarks' && (data.bookmarks.length ? <StoryRows stories={data.bookmarks} /> : <EmptyState title={emptyCopy.bookmarks[0]} body={emptyCopy.bookmarks[1]} />)}
       {category === 'queue' && (data.queue.length ? <StoryRows stories={data.queue} /> : <EmptyState icon="time-outline" title={emptyCopy.queue[0]} body={emptyCopy.queue[1]} />)}
@@ -62,7 +66,7 @@ export function LibraryScreen() {
         {creating ? <Surface style={styles.newCollection}><TextInput value={collectionName} onChangeText={setCollectionName} placeholder="Collection name" placeholderTextColor={theme.tokens.colors.mutedText} style={[styles.collectionInput, { color: theme.tokens.colors.text, borderColor: theme.tokens.colors.border }]} autoFocus onSubmitEditing={() => void createCollection()} /><Button label="Create" onPress={() => void createCollection()} /></Surface> : null}
         {data.collections.length ? data.collections.map((collection) => <Pressable key={collection.id} onPress={() => router.push({ pathname: '/collection/[id]', params: { id: collection.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.collection}><ThemedText variant="headline">{collection.name}</ThemedText><ThemedText variant="meta" muted>{collection.itemIds.length} items · updated {formatRelativeTime(collection.updatedAt)}</ThemedText></Surface></Pressable>) : !creating ? <EmptyState icon="folder-open-outline" title={emptyCopy.collections[0]} body={emptyCopy.collections[1]} /> : null}
       </View>}
-      {category === 'comments' && (data.savedComments.length ? <View style={styles.stack}>{data.savedComments.map((comment) => <Pressable key={comment.id} onPress={() => void openUrl(hnItemUrl(comment.id), preferences.openLinks)} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.comment}><ThemedText variant="meta" accent>{comment.by}</ThemedText><ThemedText numberOfLines={7}>{comment.text || '[deleted]'}</ThemedText></Surface></Pressable>)}</View> : <EmptyState icon="chatbox-ellipses-outline" title={emptyCopy.comments[0]} body={emptyCopy.comments[1]} />)}
+      {commentsEnabled && category === 'comments' && (data.savedComments.length ? <View style={styles.stack}>{data.savedComments.map((comment) => <Pressable key={comment.id} onPress={() => void openUrl(hnItemUrl(comment.id), preferences.openLinks)} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.comment}><ThemedText variant="meta" accent>{comment.by}</ThemedText><ThemedText numberOfLines={7}>{comment.text || '[deleted]'}</ThemedText></Surface></Pressable>)}</View> : <EmptyState icon="chatbox-ellipses-outline" title={emptyCopy.comments[0]} body={emptyCopy.comments[1]} />)}
     </ScrollView>}
   </Screen>;
 }

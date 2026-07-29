@@ -12,13 +12,14 @@ import { Surface } from '../../components/Surface.tsx';
 import { formatNumber, formatRelativeTime, hnItemUrl } from '../../core/format.ts';
 import { useThemeRuntime } from '../../design/ThemeProvider.tsx';
 import { openUrl } from '../../app/actions.ts';
-import { usePreferences } from '../../app/AppServices.tsx';
+import { useModuleEnabled, usePreferences } from '../../app/AppServices.tsx';
 
 export function SearchScreen() {
   const [query, setQuery] = useState('');
   const data = useSearchData(query);
   const { theme } = useThemeRuntime();
   const preferences = usePreferences();
+  const discoveryEnabled = useModuleEnabled('discovery');
   return <Screen edges={['top']}>
     <ScreenHeader title="Search" subtitle="Everything the app has archived locally" />
     <View style={[styles.search, { backgroundColor: theme.tokens.colors.surface, borderColor: theme.tokens.colors.border, borderRadius: theme.tokens.shape.radius }]}>
@@ -31,7 +32,7 @@ export function SearchScreen() {
       {data.comments.length ? <><ThemedText variant="headline" style={{ marginTop: 10 }}>Comments</ThemedText>{data.comments.map((comment) => <Pressable key={comment.id} onPress={() => void openUrl(hnItemUrl(comment.id), preferences.openLinks)} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.resultCard}><View style={styles.meta}><ThemedText variant="meta" accent>{comment.by}</ThemedText><ThemedText variant="caption" muted>{formatRelativeTime(comment.time)}</ThemedText></View><ThemedText numberOfLines={5}>{comment.text || '[deleted]'}</ThemedText></Surface></Pressable>)}</> : null}
     </ScrollView> : <ScrollView contentContainerStyle={styles.discovery}>
       <ThemedText variant="headline">Top domains in your archive</ThemedText>
-      <View style={styles.chips}>{data.domains.map((entry) => <Chip key={entry.domain} label={`${entry.domain} · ${entry.count}`} onPress={() => router.push({ pathname: '/discovery/domain/[domain]', params: { domain: entry.domain } })} />)}</View>
+      <View style={styles.chips}>{data.domains.map((entry) => <Chip key={entry.domain} label={`${entry.domain} · ${entry.count}`} disabled={!discoveryEnabled} onPress={discoveryEnabled ? () => router.push({ pathname: '/discovery/domain/[domain]', params: { domain: entry.domain } }) : undefined} />)}</View>
       <Surface style={styles.tip}><ThemedText variant="headline">Private by design</ThemedText><ThemedText muted>Search is powered by SQLite FTS on your device. No search query leaves the app.</ThemedText></Surface>
     </ScrollView>}
   </Screen>;

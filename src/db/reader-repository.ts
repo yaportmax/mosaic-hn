@@ -15,7 +15,7 @@ interface VisitRecord { visitedAt: number }
 interface NoteValue { itemId: number; body: string; updatedAt: number }
 interface TagValue { itemId: number; tags: string[] }
 
-export interface RefreshFeedOptions { limit?: number; signal?: AbortSignal }
+export interface RefreshFeedOptions { limit?: number; signal?: AbortSignal; archiveFeed?: boolean; captureStorySnapshots?: boolean }
 export interface RepositoryAutomationAction { itemId: number; save: boolean; queue: boolean; tags: string[] }
 export interface LoadDiscussionOptions {
   batchSize?: number;
@@ -99,24 +99,32 @@ export class ReaderRepository {
     const fetched = await this.gateway.getItems(ids, options.signal);
     const byId = new Map(fetched.filter(isStory).map((story) => [story.id, story]));
     const stories = ids.map((id) => byId.get(id)).filter((story): story is Story => Boolean(story));
-    const existingTimelines = new Map(
-      (await this.db.getMany<StorySnapshot[]>('snapshots', stories.map((story) => numericKey(story.id))))
-        .map((record) => [Number(record.key), record.value] as const)
-    );
+    const archiveFeed = options.archiveFeed !== false;
+    const captureStorySnapshots = options.captureStorySnapshots !== false;
+    const existingTimelines = captureStorySnapshots
+      ? new Map(
+        (await this.db.getMany<StorySnapshot[]>('snapshots', stories.map((story) => numericKey(story.id))))
+          .map((record) => [Number(record.key), record.value] as const)
+      )
+      : new Map<number, StorySnapshot[]>();
     const archiveDate = utcDate(capturedAt);
     const archiveKey = `${feed}:${archiveDate}`;
-    const staleArchiveKeys = (await this.db.scan<FeedArchiveRecord>('feed-archive', `${feed}:`))
-      .filter((record) => record.key !== archiveKey)
-      .sort((a, b) => b.value.capturedAt - a.value.capturedAt || b.key.localeCompare(a.key))
-      .slice(MAX_FEED_ARCHIVE_DAYS - 1)
-      .map((record) => record.key);
+    const staleArchiveKeys = archiveFeed
+      ? (await this.db.scan<FeedArchiveRecord>('feed-archive', `${feed}:`))
+        .filter((record) => record.key !== archiveKey)
+        .sort((a, b) => b.value.capturedAt - a.value.capturedAt || b.key.localeCompare(a.key))
+        .slice(MAX_FEED_ARCHIVE_DAYS - 1)
+        .map((record) => record.key)
+      : [];
 
     await this.db.transaction(async (tx) => {
       for (const story of stories) await tx.set('items', numericKey(story.id), story);
       await tx.set<FeedCacheRecord>('feeds', feed, { ids: stories.map((story) => story.id), fetchedAt: capturedAt });
-      await tx.set<FeedArchiveRecord>('feed-archive', archiveKey, { feed, date: archiveDate, capturedAt, storyIds: stories.map((story) => story.id) });
-      for (const staleKey of staleArchiveKeys) await tx.delete('feed-archive', staleKey);
-      for (let rank = 0; rank < stories.length; rank += 1) {
+      if (archiveFeed) {
+        await tx.set<FeedArchiveRecord>('feed-archive', archiveKey, { feed, date: archiveDate, capturedAt, storyIds: stories.map((story) => story.id) });
+        for (const staleKey of staleArchiveKeys) await tx.delete('feed-archive', staleKey);
+      }
+      if (captureStorySnapshots) for (let rank = 0; rank < stories.length; rank += 1) {
         const story = stories[rank];
         if (!story) continue;
         const timeline = existingTimelines.get(story.id) ?? [];

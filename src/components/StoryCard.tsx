@@ -5,9 +5,9 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import type { FeedViewItem } from '../core/feed-pipeline.ts';
 import { formatNumber, formatRelativeTime, storyTypeLabel } from '../core/format.ts';
-import { gestureActionAppearance, swipeRevealActions, type GestureActionTone } from '../core/gesture-actions.ts';
+import { gestureActionAppearance, resolveGestureActionForModules, swipeRevealActions, type GestureActionTone } from '../core/gesture-actions.ts';
 import { useThemeRuntime } from '../design/ThemeProvider.tsx';
-import { usePreferences } from '../app/AppServices.tsx';
+import { useModuleEnabled, usePreferences } from '../app/AppServices.tsx';
 import type { GestureAction } from '../state/preferences.ts';
 import { Surface } from './Surface.tsx';
 import { ThemedText } from './ThemedText.tsx';
@@ -24,6 +24,9 @@ interface StoryCardProps {
 function StoryCardComponent({ item, index, onOpenStory, onAction, bookmarked = false, queued = false }: StoryCardProps) {
   const { theme } = useThemeRuntime();
   const preferences = usePreferences();
+  const algorithmsEnabled = useModuleEnabled('algorithms');
+  const automationEnabled = useModuleEnabled('automation');
+  const libraryEnabled = useModuleEnabled('library');
   const translateX = useSharedValue(0);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -39,8 +42,9 @@ function StoryCardComponent({ item, index, onOpenStory, onAction, bookmarked = f
   }, []);
 
   const invoke = useCallback((action: GestureAction) => {
-    if (action !== 'none') onAction(story.id, action);
-  }, [onAction, story.id]);
+    const resolved = resolveGestureActionForModules(action, { library: libraryEnabled, automation: automationEnabled });
+    if (resolved !== 'none') onAction(story.id, resolved);
+  }, [automationEnabled, libraryEnabled, onAction, story.id]);
 
   const handlePress = useCallback(() => {
     if (longPressConsumed.current) {
@@ -84,7 +88,11 @@ function StoryCardComponent({ item, index, onOpenStory, onAction, bookmarked = f
     }), [invoke, preferences.gestures.swipeLeft, preferences.gestures.swipeRight, theme.tokens.motion.springDamping, translateX]);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ translateX: translateX.value }] }));
 
-  const revealed = swipeRevealActions(preferences.gestures);
+  const configuredReveals = swipeRevealActions(preferences.gestures);
+  const revealed = {
+    left: resolveGestureActionForModules(configuredReveals.left, { library: libraryEnabled, automation: automationEnabled }),
+    right: resolveGestureActionForModules(configuredReveals.right, { library: libraryEnabled, automation: automationEnabled })
+  };
   const leftAppearance = gestureActionAppearance(revealed.left);
   const rightAppearance = gestureActionAppearance(revealed.right);
   const toneColor = (tone: GestureActionTone): string => {
@@ -115,8 +123,8 @@ function StoryCardComponent({ item, index, onOpenStory, onAction, bookmarked = f
     accessibilityRole="button"
     accessibilityLabel={`${story.title}, ${story.score} points, ${story.descendants} comments, by ${story.by}`}
     accessibilityHint="Opens the story discussion"
-    accessibilityActions={[{ name: 'activate', label: 'Open' }, { name: 'magicTap', label: 'Save' }]}
-    onAccessibilityAction={(event) => event.nativeEvent.actionName === 'magicTap' ? invoke('save') : onOpenStory(story.id)}
+    accessibilityActions={libraryEnabled ? [{ name: 'activate', label: 'Open' }, { name: 'magicTap', label: 'Save' }] : [{ name: 'activate', label: 'Open' }]}
+    onAccessibilityAction={(event) => event.nativeEvent.actionName === 'magicTap' && libraryEnabled ? invoke('save') : onOpenStory(story.id)}
     onPress={handlePress}
     onLongPress={handleLongPress}
     delayLongPress={380}
@@ -130,11 +138,11 @@ function StoryCardComponent({ item, index, onOpenStory, onAction, bookmarked = f
           <ThemedText variant={layout === 'magazine' ? 'title' : layout === 'compact' ? 'meta' : 'headline'} numberOfLines={layout === 'compact' ? 1 : layout === 'magazine' ? 4 : 3} style={styles.title}>{story.title}</ThemedText>
         </View>
         {metadataLayout === 'footer' ? null : metadata}
-        {preferences.showRankingExplanations && item.explanationText ? <ThemedText variant="caption" accent numberOfLines={2} style={{ marginTop: 7 }}>{item.explanationText}</ThemedText> : null}
+        {algorithmsEnabled && preferences.showRankingExplanations && item.explanationText ? <ThemedText variant="caption" accent numberOfLines={2} style={{ marginTop: 7 }}>{item.explanationText}</ThemedText> : null}
       </View>
       <View style={styles.indicators}>
-        {bookmarked ? <Ionicons name="bookmark" size={15} color={theme.tokens.colors.accent} /> : null}
-        {queued ? <Ionicons name="time" size={15} color={theme.tokens.colors.accent} /> : null}
+        {libraryEnabled && bookmarked ? <Ionicons name="bookmark" size={15} color={theme.tokens.colors.accent} /> : null}
+        {libraryEnabled && queued ? <Ionicons name="time" size={15} color={theme.tokens.colors.accent} /> : null}
         {layout !== 'compact' ? <Ionicons name="chevron-forward" size={18} color={theme.tokens.colors.mutedText} /> : null}
       </View>
     </View>

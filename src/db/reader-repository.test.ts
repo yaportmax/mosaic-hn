@@ -28,6 +28,15 @@ test('refreshFeed persists a cached feed, items, and local snapshots', async () 
   assert.equal((await repo.getStoryTimeline(1)).length, 2);
 });
 
+test('refreshFeed can skip archive and snapshot work for disabled modules', async () => {
+  const repo = new ReaderRepository(new MemoryDatabaseAdapter(), new FakeGateway(), () => 5_000);
+  const refreshed = await repo.refreshFeed('top', { limit: 20, archiveFeed: false, captureStorySnapshots: false });
+  assert.deepEqual(refreshed.map((item) => item.id), [1, 2]);
+  assert.deepEqual((await repo.getCachedFeed('top')).map((item) => item.id), [1, 2]);
+  assert.deepEqual(await repo.listFeedArchive('top'), []);
+  assert.deepEqual(await repo.getStoryTimeline(1), []);
+});
+
 test('loadDiscussion emits cached-first progressive comment batches', async () => {
   const repo = new ReaderRepository(new MemoryDatabaseAdapter(), new FakeGateway(), () => 5_000);
   const root = story(1, 'Story', [10]);

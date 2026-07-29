@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { HnItem, Story } from '../core/models.ts';
-import { useAppServices } from '../app/AppServices.tsx';
+import { useAppServices, useModuleEnabled } from '../app/AppServices.tsx';
 
 export interface DomainCount { domain: string; count: number }
 
 export function useSearchData(query: string) {
   const { database } = useAppServices();
+  const commentsEnabled = useModuleEnabled('comments');
   const [results, setResults] = useState<HnItem[]>([]);
   const [domains, setDomains] = useState<DomainCount[]>([]);
   const [loading, setLoading] = useState(false);
@@ -32,7 +33,8 @@ export function useSearchData(query: string) {
     return () => { active = false; clearTimeout(timer); };
   }, [database.repository, query]);
 
-  const stories = useMemo(() => results.filter((item): item is Story => item.kind === 'story'), [results]);
-  const comments = useMemo(() => results.filter((item) => item.kind === 'comment'), [results]);
-  return { results, stories, comments, domains, loading };
+  const visibleResults = useMemo(() => commentsEnabled ? results : results.filter((item) => item.kind === 'story'), [commentsEnabled, results]);
+  const stories = useMemo(() => visibleResults.filter((item): item is Story => item.kind === 'story'), [visibleResults]);
+  const comments = useMemo(() => visibleResults.filter((item) => item.kind === 'comment'), [visibleResults]);
+  return { results: visibleResults, stories, comments, domains, loading };
 }

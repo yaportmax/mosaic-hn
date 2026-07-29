@@ -24,3 +24,15 @@ export function gestureActionAppearance(action: GestureAction): GestureActionApp
 export function swipeRevealActions(gestures: Pick<{ swipeLeft: GestureAction; swipeRight: GestureAction }, 'swipeLeft' | 'swipeRight'>): { left: GestureAction; right: GestureAction } {
   return { left: gestures.swipeRight, right: gestures.swipeLeft };
 }
+
+
+export interface GestureModuleAvailability {
+  library: boolean;
+  automation: boolean;
+}
+
+export function resolveGestureActionForModules(action: GestureAction, modules: GestureModuleAvailability): GestureAction {
+  if ((action === 'save' || action === 'queue') && !modules.library) return 'none';
+  if (action === 'hide' && !modules.automation) return 'none';
+  return action;
+}

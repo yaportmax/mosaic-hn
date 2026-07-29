@@ -5,22 +5,25 @@ import { router } from 'expo-router';
 import type { CommentRow as CommentRowModel } from '../core/models.ts';
 import { formatRelativeTime } from '../core/format.ts';
 import { useThemeRuntime } from '../design/ThemeProvider.tsx';
+import { useModuleEnabled } from '../app/AppServices.tsx';
 import { Surface } from './Surface.tsx';
 import { ThemedText } from './ThemedText.tsx';
 
 function CommentRowComponent({ row, onToggle, onSave }: { row: CommentRowModel; onToggle(): void; onSave(): void }) {
   const { theme } = useThemeRuntime();
+  const discoveryEnabled = useModuleEnabled('discovery');
+  const libraryEnabled = useModuleEnabled('library');
   const layout = theme.layout.comments;
   const indent = Math.min(row.depth, 10) * (layout === 'ledger' ? 10 : 14);
   const content = <View style={[styles.content, { paddingLeft: 12 + indent, paddingRight: 12, paddingVertical: layout === 'ledger' ? 9 : 12 }]}>
     {row.depth > 0 && layout !== 'conversation' ? <View style={[styles.threadLine, { left: Math.max(5, 6 + indent - 8), backgroundColor: row.isNew ? theme.tokens.colors.accent : theme.tokens.colors.border }]} /> : null}
     <View style={styles.header}>
-      <Pressable accessibilityRole="link" onPress={() => router.push({ pathname: '/user/[id]', params: { id: row.comment.by } })}><ThemedText variant="meta" accent={row.isOp} style={{ fontWeight: row.isOp ? '800' : '600' }}>{row.comment.by || '[deleted]'}</ThemedText></Pressable>
+      {discoveryEnabled ? <Pressable accessibilityRole="link" onPress={() => router.push({ pathname: '/user/[id]', params: { id: row.comment.by } })}><ThemedText variant="meta" accent={row.isOp} style={{ fontWeight: row.isOp ? '800' : '600' }}>{row.comment.by || '[deleted]'}</ThemedText></Pressable> : <ThemedText variant="meta" accent={row.isOp} style={{ fontWeight: row.isOp ? '800' : '600' }}>{row.comment.by || '[deleted]'}</ThemedText>}
       {row.isOp ? <ThemedText variant="caption" accent>OP</ThemedText> : null}
       {row.isNew ? <ThemedText variant="caption" style={{ color: theme.tokens.colors.success, fontWeight: '800' }}>NEW</ThemedText> : null}
       <ThemedText variant="caption" muted>{formatRelativeTime(row.comment.time)}</ThemedText>
       <View style={styles.spacer} />
-      <Pressable accessibilityRole="button" accessibilityLabel={row.isSaved ? 'Unsave comment' : 'Save comment'} hitSlop={10} onPress={onSave}><Ionicons name={row.isSaved ? 'bookmark' : 'bookmark-outline'} size={17} color={row.isSaved ? theme.tokens.colors.accent : theme.tokens.colors.mutedText} /></Pressable>
+      {libraryEnabled ? <Pressable accessibilityRole="button" accessibilityLabel={row.isSaved ? 'Unsave comment' : 'Save comment'} hitSlop={10} onPress={onSave}><Ionicons name={row.isSaved ? 'bookmark' : 'bookmark-outline'} size={17} color={row.isSaved ? theme.tokens.colors.accent : theme.tokens.colors.mutedText} /></Pressable> : null}
     </View>
     <Pressable accessibilityRole="button" accessibilityLabel={`Comment by ${row.comment.by}`} accessibilityHint={row.hasChildren ? 'Collapses or expands this thread' : undefined} onPress={row.hasChildren ? onToggle : undefined} style={({ pressed }) => ({ opacity: pressed ? 0.68 : 1 })}>
       <ThemedText style={[styles.body, (row.comment.deleted || row.comment.dead) && { fontStyle: 'italic', color: theme.tokens.colors.mutedText }]}>{row.comment.text || (row.comment.deleted ? '[deleted]' : '[unavailable]')}</ThemedText>

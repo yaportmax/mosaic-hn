@@ -3,7 +3,7 @@ import { useNetInfo } from '@react-native-community/netinfo';
 import type { FeedKind, FeedPreset, Story } from '../core/models.ts';
 import { DEFAULT_FEED_PRESET } from '../core/ranking.ts';
 import { buildFeedView, type FeedViewItem } from '../core/feed-pipeline.ts';
-import { useAppServices, usePreferences } from '../app/AppServices.tsx';
+import { useAppServices, useModuleEnabled, usePreferences } from '../app/AppServices.tsx';
 
 export interface FeedDataState {
   items: FeedViewItem[];
@@ -23,6 +23,10 @@ export interface FeedDataState {
 export function useFeedData(feed: FeedKind): FeedDataState {
   const { database } = useAppServices();
   const preferences = usePreferences();
+  const algorithmsEnabled = useModuleEnabled('algorithms');
+  const automationEnabled = useModuleEnabled('automation');
+  const libraryEnabled = useModuleEnabled('library');
+  const archiveEnabled = useModuleEnabled('archive');
   const netInfo = useNetInfo();
   const [items, setItems] = useState<FeedViewItem[]>([]);
   const [hiddenCount, setHiddenCount] = useState(0);
@@ -38,18 +42,28 @@ export function useFeedData(feed: FeedKind): FeedDataState {
   const prepare = useCallback(async (stories: readonly Story[]) => {
     const current = ++generation.current;
     let [presets, rules, snapshots, hiddenIds, bookmarks, queue] = await Promise.all([
-      database.repository.listPresets(),
-      database.repository.listRules(),
-      database.repository.getLatestSnapshots(stories.map((story) => story.id)),
-      database.repository.getHiddenIds(),
-      database.repository.getFlaggedIds('bookmarks'),
-      database.repository.getFlaggedIds('queue')
+      algorithmsEnabled ? database.repository.listPresets() : Promise.resolve([]),
+      automationEnabled ? database.repository.listRules() : Promise.resolve([]),
+      algorithmsEnabled ? database.repository.getLatestSnapshots(stories.map((story) => story.id)) : Promise.resolve(new Map()),
+      automationEnabled ? database.repository.getHiddenIds() : Promise.resolve(new Set<number>()),
+      libraryEnabled ? database.repository.getFlaggedIds('bookmarks') : Promise.resolve(new Set<number>()),
+      libraryEnabled ? database.repository.getFlaggedIds('queue') : Promise.resolve(new Set<number>())
     ]);
-    const selected = presets.find((candidate) => candidate.id === preferences.activePresetId) ?? presets[0] ?? DEFAULT_FEED_PRESET;
-    const persistentHiddenCount = stories.reduce((count, story) => count + (hiddenIds.has(story.id) ? 1 : 0), 0);
-    const visible = stories.filter((story) => !hiddenIds.has(story.id));
-    const result = buildFeedView(visible, selected, rules, { nowSeconds: Math.floor(Date.now() / 1000), feed, snapshots });
-    if (result.automation.length > 0) {
+    const selected = algorithmsEnabled
+      ? presets.find((candidate) => candidate.id === preferences.activePresetId) ?? presets[0] ?? DEFAULT_FEED_PRESET
+      : DEFAULT_FEED_PRESET;
+    const persistentHiddenCount = automationEnabled
+      ? stories.reduce((count, story) => count + (hiddenIds.has(story.id) ? 1 : 0), 0)
+      : 0;
+    const visible = automationEnabled ? stories.filter((story) => !hiddenIds.has(story.id)) : stories;
+    const result = buildFeedView(visible, selected, rules, {
+      nowSeconds: Math.floor(Date.now() / 1000),
+      feed,
+      snapshots,
+      rankingEnabled: algorithmsEnabled,
+      automationEnabled
+    });
+    if (libraryEnabled && automationEnabled && result.automation.length > 0) {
       await database.repository.applyAutomation(result.automation);
       [bookmarks, queue] = await Promise.all([database.repository.getFlaggedIds('bookmarks'), database.repository.getFlaggedIds('queue')]);
     }
@@ -59,20 +73,24 @@ export function useFeedData(feed: FeedKind): FeedDataState {
     setQueuedIds(queue);
     setItems(result.items);
     setHiddenCount(persistentHiddenCount + result.hiddenStoryIds.length);
-  }, [database.repository, feed, preferences.activePresetId]);
+  }, [algorithmsEnabled, automationEnabled, database.repository, feed, libraryEnabled, preferences.activePresetId]);
 
   const reloadFromCache = useCallback(async () => {
     const cached = await database.repository.getCachedFeed(feed, preferences.feedLimit);
     await prepare(cached);
     setLastUpdated(await database.repository.getFeedFetchedAt(feed) ?? null);
     setLoading(false);
-  }, [database.repository, feed, preferences.feedLimit, prepare]);
+  }, [algorithmsEnabled, archiveEnabled, database.repository, feed, preferences.feedLimit, prepare]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
     setError(null);
     try {
-      const stories = await database.repository.refreshFeed(feed, { limit: preferences.feedLimit });
+      const stories = await database.repository.refreshFeed(feed, {
+        limit: preferences.feedLimit,
+        archiveFeed: archiveEnabled,
+        captureStorySnapshots: archiveEnabled || algorithmsEnabled
+      });
       await prepare(stories);
       setLastUpdated(await database.repository.getFeedFetchedAt(feed) ?? Math.floor(Date.now() / 1000));
     } catch (reason) {
@@ -81,7 +99,7 @@ export function useFeedData(feed: FeedKind): FeedDataState {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [database.repository, feed, preferences.feedLimit, prepare]);
+  }, [algorithmsEnabled, archiveEnabled, database.repository, feed, preferences.feedLimit, prepare]);
 
   useEffect(() => {
     let active = true;

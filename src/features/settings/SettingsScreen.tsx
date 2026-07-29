@@ -18,8 +18,6 @@ import { Button } from '../../components/Button.tsx';
 import { Surface } from '../../components/Surface.tsx';
 import { ThemedText } from '../../components/ThemedText.tsx';
 
-const gestureActions: GestureAction[] = ['none', 'open', 'save', 'queue', 'share', 'hide'];
-
 function Choice<T extends string>({ values, selected, labels, onSelect }: { values: readonly T[]; selected: T; labels?: Partial<Record<T, string>>; onSelect(value: T): void }) {
   return <View style={styles.chips}>{values.map((value) => <Chip key={value} compact label={labels?.[value] ?? value} selected={value === selected} onPress={() => onSelect(value)} />)}</View>;
 }
@@ -28,6 +26,11 @@ export function SettingsScreen() {
   const preferences = usePreferences();
   const moduleConfiguration = useModuleConfiguration();
   const { preferences: controller, database } = useAppServices();
+  const commentsEnabled = moduleConfiguration.enabled.includes('comments');
+  const algorithmsEnabled = moduleConfiguration.enabled.includes('algorithms');
+  const automationEnabled = moduleConfiguration.enabled.includes('automation');
+  const libraryEnabled = moduleConfiguration.enabled.includes('library');
+  const gestureActions: GestureAction[] = ['none', 'open', ...(libraryEnabled ? ['save', 'queue'] as const : []), 'share', ...(automationEnabled ? ['hide'] as const : [])];
   const update = (patch: Parameters<typeof controller.update>[0]) => void controller.update(patch);
 
   const importLibrary = async () => {
@@ -56,8 +59,8 @@ export function SettingsScreen() {
         <Surface style={styles.group}>
           <SettingRow icon="globe-outline" title="Open links" detail="Choose the system browser or an in-app browser sheet." />
           <Choice<LinkOpeningPreference> values={['system', 'in-app']} selected={preferences.openLinks} labels={{ system: 'System browser', 'in-app': 'In-app browser' }} onSelect={(openLinks) => update({ openLinks })} />
-          <SettingRow icon="chatbubble-ellipses-outline" title="Preload comments" detail="Fetch discussion branches progressively when a story opens." value={preferences.preloadComments} onValueChange={(preloadComments) => update({ preloadComments })} />
-          <SettingRow icon="analytics-outline" title="Show ranking explanations" detail="Expose the local factors that raised each story." value={preferences.showRankingExplanations} onValueChange={(showRankingExplanations) => update({ showRankingExplanations })} />
+          {commentsEnabled ? <SettingRow icon="chatbubble-ellipses-outline" title="Preload comments" detail="Fetch discussion branches progressively when a story opens." value={preferences.preloadComments} onValueChange={(preloadComments) => update({ preloadComments })} /> : null}
+          {algorithmsEnabled ? <SettingRow icon="analytics-outline" title="Show ranking explanations" detail="Expose the local factors that raised each story." value={preferences.showRankingExplanations} onValueChange={(showRankingExplanations) => update({ showRankingExplanations })} /> : null}
           <SettingRow icon="calculator-outline" title="Compact numbers" detail="Use 1.2k rather than 1,200 in dense interfaces." value={preferences.compactNumbers} onValueChange={(compactNumbers) => update({ compactNumbers })} />
         </Surface>
       </Section>
@@ -66,8 +69,8 @@ export function SettingsScreen() {
         <Choice<FeedKind> values={FEED_KINDS} selected={preferences.defaultFeed} labels={FEED_LABELS} onSelect={(defaultFeed) => update({ defaultFeed })} />
         <Surface style={styles.numberChoices}><ThemedText variant="meta" muted>Stories per refresh</ThemedText><Choice values={['60', '120', '200', '300'] as const} selected={String(preferences.feedLimit) as '60' | '120' | '200' | '300'} onSelect={(value) => update({ feedLimit: Number(value) })} /></Surface>
         <Surface style={styles.numberChoices}><ThemedText variant="meta" muted>Automatic refresh</ThemedText><Choice values={['0', '5', '10', '30'] as const} selected={String(preferences.autoRefreshMinutes) as '0' | '5' | '10' | '30'} labels={{ '0': 'Off', '5': '5 min', '10': '10 min', '30': '30 min' }} onSelect={(value) => update({ autoRefreshMinutes: Number(value) })} /></Surface>
-        {moduleConfiguration.enabled.includes('algorithms') ? <Button label="Edit custom feed algorithms" icon="options-outline" variant="secondary" onPress={() => router.push('/presets')} /> : null}
-        {moduleConfiguration.enabled.includes('automation') ? <Button label="Edit filters and automation" icon="filter-outline" variant="secondary" onPress={() => router.push('/rules')} /> : null}
+        {algorithmsEnabled ? <Button label="Edit custom feed algorithms" icon="options-outline" variant="secondary" onPress={() => router.push('/presets')} /> : null}
+        {automationEnabled ? <Button label="Edit filters and automation" icon="filter-outline" variant="secondary" onPress={() => router.push('/rules')} /> : null}
       </Section>
 
       <Section title="Appearance and accessibility">
@@ -83,7 +86,7 @@ export function SettingsScreen() {
         </Surface>
       </Section>
 
-      <Section title="Gesture controls" caption="Every gesture invokes a trusted core action; themes and module setup files cannot replace the behavior.">
+      <Section title="Gesture controls" caption="Only actions owned by enabled modules are offered. Disabled actions remain saved and return when their module is restored.">
         {([
           ['Swipe left', 'swipeLeft'], ['Swipe right', 'swipeRight'], ['Long press', 'longPress'], ['Double tap', 'doubleTap']
         ] as const).map(([label, key]) => <Surface key={key} style={styles.gesture}><ThemedText variant="meta" muted>{label}</ThemedText><Choice values={gestureActions} selected={preferences.gestures[key]} onSelect={(action) => update({ gestures: { ...preferences.gestures, [key]: action } })} /></Surface>)}
