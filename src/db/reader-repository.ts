@@ -17,6 +17,7 @@ interface TagValue { itemId: number; tags: string[] }
 interface StoredCollection { id: string; name: string; createdAt: number; updatedAt: number; itemIds: number[] }
 
 export interface RefreshFeedOptions { limit?: number; signal?: AbortSignal }
+export interface RepositoryAutomationAction { itemId: number; save: boolean; queue: boolean; tags: string[] }
 export interface LoadDiscussionOptions {
   batchSize?: number;
   maxComments?: number;
@@ -187,6 +188,27 @@ export class ReaderRepository {
     return true;
   }
 
+  async setBookmark(itemId: number, enabled: boolean): Promise<void> {
+    const key = numericKey(itemId);
+    if (enabled) {
+      if (!(await this.db.get<TimestampRecord>('bookmarks', key))) await this.db.set<TimestampRecord>('bookmarks', key, { createdAt: this.now() });
+    } else await this.db.delete('bookmarks', key);
+  }
+
+  async setQueue(itemId: number, enabled: boolean): Promise<void> {
+    const key = numericKey(itemId);
+    if (enabled) {
+      if (!(await this.db.get<TimestampRecord>('queue', key))) await this.db.set<TimestampRecord>('queue', key, { createdAt: this.now() });
+    } else await this.db.delete('queue', key);
+  }
+
+  async setSavedComment(itemId: number, enabled: boolean): Promise<void> {
+    const key = numericKey(itemId);
+    if (enabled) {
+      if (!(await this.db.get<TimestampRecord>('saved-comments', key))) await this.db.set<TimestampRecord>('saved-comments', key, { createdAt: this.now() });
+    } else await this.db.delete('saved-comments', key);
+  }
+
   async toggleBookmark(itemId: number): Promise<boolean> { return this.toggleTimestampTable('bookmarks', itemId); }
   async toggleQueue(itemId: number): Promise<boolean> { return this.toggleTimestampTable('queue', itemId); }
   async toggleSavedComment(itemId: number): Promise<boolean> { return this.toggleTimestampTable('saved-comments', itemId); }
@@ -206,6 +228,25 @@ export class ReaderRepository {
     const normalized = [...new Set(tags.map((tag) => tag.trim().toLowerCase()).filter(Boolean))].sort();
     if (normalized.length === 0) await this.db.delete('tags', numericKey(itemId));
     else await this.db.set<TagValue>('tags', numericKey(itemId), { itemId, tags: normalized });
+  }
+
+  async getTags(itemId: number): Promise<string[]> {
+    return [...((await this.db.get<TagValue>('tags', numericKey(itemId)))?.tags ?? [])];
+  }
+
+  async addTags(itemId: number, tags: readonly string[]): Promise<void> {
+    await this.setTags(itemId, [...await this.getTags(itemId), ...tags]);
+  }
+
+  async applyAutomation(actions: readonly RepositoryAutomationAction[]): Promise<void> {
+    await this.db.transaction(async (tx) => {
+      const repository = new ReaderRepository(tx, this.gateway, this.now);
+      for (const action of actions) {
+        if (action.save) await repository.setBookmark(action.itemId, true);
+        if (action.queue) await repository.setQueue(action.itemId, true);
+        if (action.tags.length > 0) await repository.addTags(action.itemId, action.tags);
+      }
+    });
   }
 
   async saveCollection(collection: StoredCollection): Promise<void> { await this.db.set('collections', collection.id, collection); }
@@ -239,6 +280,42 @@ export class ReaderRepository {
       if (output.length >= limit) break;
     }
     return output.sort((a, b) => a.id - b.id);
+  }
+
+
+  async setHidden(itemId: number, hidden: boolean): Promise<void> {
+    const key = numericKey(itemId);
+    if (hidden) await this.db.set<TimestampRecord>('hidden', key, { createdAt: this.now() });
+    else await this.db.delete('hidden', key);
+  }
+
+  async isHidden(itemId: number): Promise<boolean> { return Boolean(await this.db.get('hidden', numericKey(itemId))); }
+
+  async getHiddenIds(): Promise<Set<number>> {
+    return new Set((await this.db.scan<TimestampRecord>('hidden')).map((record) => Number(record.key)).filter(Number.isFinite));
+  }
+
+  async getRecentHistory(limit = 100): Promise<Story[]> {
+    const visits = await this.db.scan<VisitRecord>('visits');
+    const output: Array<{ story: Story; visitedAt: number }> = [];
+    for (const visit of visits) {
+      const story = await this.getCachedStory(Number(visit.key));
+      if (story) output.push({ story, visitedAt: visit.value.visitedAt });
+    }
+    return output.sort((a, b) => b.visitedAt - a.visitedAt || b.story.id - a.story.id).slice(0, Math.max(1, limit)).map((entry) => entry.story);
+  }
+
+  async getSavedCommentIds(): Promise<Set<number>> {
+    return new Set((await this.db.scan<TimestampRecord>('saved-comments')).map((record) => Number(record.key)).filter(Number.isFinite));
+  }
+
+  async getItems(ids: readonly number[]): Promise<HnItem[]> {
+    const output: HnItem[] = [];
+    for (const id of ids) {
+      const item = await this.getCachedItem(id);
+      if (item) output.push(item);
+    }
+    return output;
   }
 
   async getAllCachedStories(limit = 5_000): Promise<Story[]> {

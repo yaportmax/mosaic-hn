@@ -69,3 +69,26 @@ test('recordVisit preserves the previous visit boundary for new-comment markers'
   assert.equal(await repo.recordVisit(1), 5_000);
   assert.equal(await repo.getLastVisit(1), 7_000);
 });
+
+test('automation actions are idempotent and tags merge without toggling', async () => {
+  const repo = new ReaderRepository(new MemoryDatabaseAdapter(), new FakeGateway(), () => 5_000);
+  await repo.applyAutomation([{ itemId: 1, save: true, queue: true, tags: ['database'] }]);
+  await repo.applyAutomation([{ itemId: 1, save: true, queue: true, tags: ['favorite', 'database'] }]);
+  assert.equal(await repo.isBookmarked(1), true);
+  assert.equal(await repo.isQueued(1), true);
+  assert.deepEqual(await repo.getTags(1), ['database', 'favorite']);
+});
+
+test('library history and hidden items are queryable without a remote service', async () => {
+  let now = 5_000;
+  const repo = new ReaderRepository(new MemoryDatabaseAdapter(), new FakeGateway(), () => now);
+  await repo.refreshFeed('top');
+  await repo.recordVisit(1);
+  now = 6_000;
+  await repo.recordVisit(2);
+  await repo.setHidden(1, true);
+  assert.deepEqual((await repo.getRecentHistory()).map((item) => item.id), [2, 1]);
+  assert.equal(await repo.isHidden(1), true);
+  await repo.setHidden(1, false);
+  assert.equal(await repo.isHidden(1), false);
+});
