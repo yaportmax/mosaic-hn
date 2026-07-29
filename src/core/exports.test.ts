@@ -14,6 +14,6 @@ test('importLibraryJson rejects unknown versions', () => {
 
 test('Markdown export escapes headings and includes canonical HN links', () => {
   const text = exportCollectionMarkdown({ name: 'Research', items: [{ id: 42, title: 'A [link]', note: 'Read this' }] });
-  assert.match(text, /A \\[link\\]/);
+  assert.ok(text.includes('A \\[link\\]'));
   assert.match(text, /news\.ycombinator\.com\/item\?id=42/);
 });

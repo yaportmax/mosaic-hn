@@ -34,8 +34,8 @@ export function htmlToPlainText(input: string | undefined | null): string {
   if (!input) return '';
   const withBreaks = input
     .replace(/<\s*br\s*\/?>/gi, '\n')
-    .replace(/<\s*\/p\s*>/gi, '\n\n')
-    .replace(/<\s*p(?:\s[^>]*)?>/gi, '')
+    .replace(/<\s*p(?:\s[^>]*)?>/gi, '\n\n')
+    .replace(/<\s*\/p\s*>/gi, '')
     .replace(/<\s*li(?:\s[^>]*)?>/gi, '• ')
     .replace(/<\s*\/li\s*>/gi, '\n');
   const withoutTags = withBreaks.replace(/<[^>]*>/g, '');
