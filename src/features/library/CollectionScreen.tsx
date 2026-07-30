@@ -6,6 +6,7 @@ import { exportCollectionMarkdown } from '../../core/exports.ts';
 import { formatNumber } from '../../core/format.ts';
 import { useAppServices, usePreferences } from '../../app/AppServices.tsx';
 import { shareTextFile } from '../../app/file-exchange.ts';
+import { confirmAction } from '../../app/dialogs.ts';
 import { Screen } from '../../components/Screen.tsx';
 import { DetailHeader } from '../../components/Header.tsx';
 import { Button } from '../../components/Button.tsx';
@@ -33,7 +34,7 @@ export function CollectionScreen({ id }: { id: string }) {
     const items = await Promise.all(stories.map(async (story) => ({ id: story.id, title: story.title, note: (await database.repository.getNote(story.id))?.body })));
     await shareTextFile(`${collection.name}.md`, exportCollectionMarkdown({ name: collection.name, items }), 'text/markdown');
   };
-  const deleteCollection = () => collection && Alert.alert('Delete collection?', 'The stories themselves and any bookmarks or notes remain in your library.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => void database.repository.deleteCollection(id).then(() => router.back()) }]);
+  const deleteCollection = () => collection && confirmAction({ title: 'Delete collection?', message: 'The stories themselves and any bookmarks or notes remain in your library.', confirmLabel: 'Delete', destructive: true, onConfirm: () => database.repository.deleteCollection(id).then(() => router.back()) });
   if (loading) return <Screen edges={['top']}><DetailHeader title="Collection" /><LoadingState label="Opening collection…" /></Screen>;
   if (!collection) return <Screen edges={['top']}><DetailHeader title="Collection" /><EmptyState title="Collection unavailable" body="It may have been removed from this device." /></Screen>;
   return <Screen edges={['top']}>

@@ -6,6 +6,7 @@ import { FEED_KINDS } from '../../core/models.ts';
 import { evaluateRule } from '../../core/filters.ts';
 import { FEED_LABELS } from '../../core/format.ts';
 import { useAppServices } from '../../app/AppServices.tsx';
+import { confirmAction } from '../../app/dialogs.ts';
 import { Screen } from '../../components/Screen.tsx';
 import { DetailHeader } from '../../components/Header.tsx';
 import { Section } from '../../components/Section.tsx';
@@ -66,7 +67,7 @@ export function RulesScreen() {
     const matched = stories.filter((story) => FEED_KINDS.some((feed) => evaluateRule(story, editing, { nowSeconds, feed }).matched));
     setPreview({ matched: matched.slice(0, 8), total: matched.length });
   };
-  const remove = (rule: FilterRule) => Alert.alert('Delete rule?', rule.name, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => void database.repository.deleteRule(rule.id).then(reload) }]);
+  const remove = (rule: FilterRule) => confirmAction({ title: 'Delete rule?', message: rule.name, confirmLabel: 'Delete', destructive: true, onConfirm: () => database.repository.deleteRule(rule.id).then(reload) });
   const toggle = async (rule: FilterRule, enabled: boolean) => { await database.repository.saveRule({ ...rule, enabled }); await reload(); };
 
   const actionDetail = useMemo(() => {

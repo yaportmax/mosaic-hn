@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { BUILTIN_MODULES } from '../../../module-sdk/registry.ts';
 import { useAppServices, useModuleConfiguration, usePreferences } from '../../app/AppServices.tsx';
 import { pickTextFile } from '../../app/file-exchange.ts';
+import { confirmAction } from '../../app/dialogs.ts';
 import { importLibraryJson } from '../../core/exports.ts';
 import type { FeedKind } from '../../core/models.ts';
 import { FEED_KINDS } from '../../core/models.ts';
@@ -41,10 +42,7 @@ export function SettingsScreen() {
     Alert.alert('Import complete', `${payload.bookmarks.length} bookmarks, ${payload.collections.length} collections, ${payload.presets.length} feed presets, and ${payload.rules.length} rules were merged locally.`);
   };
 
-  const reset = () => Alert.alert('Reset preferences?', 'This keeps your cached stories, module setup, and library but restores appearance, feed, gesture, and reading preferences.', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Reset', style: 'destructive', onPress: () => void controller.reset() }
-  ]);
+  const reset = () => confirmAction({ title: 'Reset preferences?', message: 'This keeps your cached stories, module setup, and library but restores appearance, feed, gesture, and reading preferences.', confirmLabel: 'Reset', destructive: true, onConfirm: () => controller.reset() });
 
   return <Screen edges={['top']}>
     <ScreenHeader title="Settings" subtitle="Local, private, modular, and extensively configurable" />
@@ -52,6 +50,7 @@ export function SettingsScreen() {
       <Section title="App composition">
         <Surface style={styles.group}>
           <SettingRow icon="grid-outline" title="Modules" detail={`${moduleConfiguration.enabled.length} of ${BUILTIN_MODULES.length} enabled · choose tabs, More, hidden modules, order, and home screen.`} onPress={() => router.push('/modules')} />
+          <SettingRow icon="terminal-outline" title="Command palette" detail="Jump to any enabled module or common action." onPress={() => router.push('/command')} />
         </Surface>
       </Section>
 

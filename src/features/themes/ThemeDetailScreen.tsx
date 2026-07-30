@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import type { ThemePackage } from '../../../theme-sdk/types.ts';
 import { useAppServices, usePreferences } from '../../app/AppServices.tsx';
 import { shareTextFile } from '../../app/file-exchange.ts';
+import { confirmAction } from '../../app/dialogs.ts';
 import { useThemeRuntime } from '../../design/ThemeProvider.tsx';
 import { Screen } from '../../components/Screen.tsx';
 import { DetailHeader } from '../../components/Header.tsx';
@@ -36,7 +37,7 @@ export function ThemeDetailScreen({ id }: { id: string }) {
       <View style={styles.actions}><Button label={active ? 'Active theme' : 'Use theme'} icon={active ? 'checkmark' : 'color-palette-outline'} onPress={() => void runtime.selectTheme(themePackage.manifest.id)} /><Button label="Edit a copy" icon="options-outline" variant="secondary" onPress={() => router.push({ pathname: '/theme/studio', params: { id: themePackage.manifest.id } })} /><Button label="Export JSON" icon="share-outline" variant="secondary" onPress={() => void themes.exportJson(themePackage.manifest.id).then((json) => shareTextFile(`${themePackage.manifest.name.toLowerCase().replace(/\s+/g, '-')}.mosaic-theme.json`, json, 'application/json')).catch((reason) => Alert.alert('Export failed', reason.message))} /></View>
       <Section title="Package"><Surface style={styles.details}><Detail label="Identifier" value={themePackage.manifest.id} /><Detail label="License" value={themePackage.manifest.license} /><Detail label="Minimum app" value={themePackage.manifest.minAppVersion} /><Detail label="Shell" value={themePackage.layout.shell} /><Detail label="Feed" value={themePackage.layout.feed} /><Detail label="Story" value={themePackage.layout.story} /><Detail label="Comments" value={themePackage.layout.comments} /><Detail label="Navigation" value={themePackage.layout.navigation} /></Surface></Section>
       {themePackage.manifest.description ? <Section title="Description"><ThemedText>{themePackage.manifest.description}</ThemedText></Section> : null}
-      {source === 'installed' ? <Button label="Remove community theme" variant="danger" onPress={() => Alert.alert('Remove theme?', 'The JSON package will be deleted from this device.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: () => void remove() }])} /> : null}
+      {source === 'installed' ? <Button label="Remove community theme" variant="danger" onPress={() => confirmAction({ title: 'Remove theme?', message: 'The JSON package will be deleted from this device.', confirmLabel: 'Remove', destructive: true, onConfirm: remove })} /> : null}
     </ScrollView>
   </Screen>;
 }

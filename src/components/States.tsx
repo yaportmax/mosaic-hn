@@ -1,6 +1,7 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeRuntime } from '../design/ThemeProvider.tsx';
+import { foregroundFor } from '../design/contrast.ts';
 import { Button } from './Button.tsx';
 import { ThemedText } from './ThemedText.tsx';
 
@@ -20,6 +21,6 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
 
 export function OfflineBanner() {
   const { theme } = useThemeRuntime();
-  return <View style={[styles.banner, { backgroundColor: theme.tokens.colors.warning }]}><ThemedText variant="caption" style={{ color: '#FFFFFF', fontWeight: '700' }}>OFFLINE · SHOWING SAVED DATA</ThemedText></View>;
+  return <View style={[styles.banner, { backgroundColor: theme.tokens.colors.warning }]}><ThemedText variant="caption" style={{ color: foregroundFor(theme.tokens.colors.warning), fontWeight: '800' }}>Offline - showing saved data</ThemedText></View>;
 }
 const styles = StyleSheet.create({ center: { flex: 1, minHeight: 220, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 28 }, banner: { paddingHorizontal: 12, paddingVertical: 5, alignItems: 'center' } });

@@ -15,11 +15,16 @@ export function formatNumber(value: number, compact = true): string {
 export function formatRelativeTime(unixSeconds: number, nowSeconds = Math.floor(Date.now() / 1000)): string {
   const delta = Math.max(0, nowSeconds - unixSeconds);
   if (delta < 45) return 'now';
-  if (delta < 3_600) return `${Math.floor(delta / 60)}m`;
+  if (delta < 3_600) return `${Math.max(1, Math.floor(delta / 60))}m`;
   if (delta < 86_400) return `${Math.floor(delta / 3_600)}h`;
   if (delta < 2_592_000) return `${Math.floor(delta / 86_400)}d`;
   if (delta < 31_536_000) return `${Math.floor(delta / 2_592_000)}mo`;
   return `${Math.floor(delta / 31_536_000)}y`;
+}
+
+export function formatTimeAgo(unixSeconds: number, nowSeconds = Math.floor(Date.now() / 1000)): string {
+  const relative = formatRelativeTime(unixSeconds, nowSeconds);
+  return relative === 'now' ? 'now' : `${relative} ago`;
 }
 
 export const FEED_LABELS: Record<FeedKind, string> = {

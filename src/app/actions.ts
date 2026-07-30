@@ -1,4 +1,4 @@
-import { Linking, Share } from 'react-native';
+import { Linking, Platform, Share } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as WebBrowser from 'expo-web-browser';
 import type { Story } from '../core/models.ts';
@@ -25,7 +25,14 @@ export async function openStory(story: Story, preferences: AppPreferences): Prom
 }
 
 export async function shareStory(story: Story): Promise<void> {
-  await Share.share({ title: story.title, message: `${story.title}\n${story.url ?? hnItemUrl(story.id)}`, url: story.url ?? hnItemUrl(story.id) });
+  const url = story.url ?? hnItemUrl(story.id);
+  const message = `${story.title}\n${url}`;
+  if (Platform.OS === 'web') {
+    if (navigator.share) await navigator.share({ title: story.title, text: story.title, url });
+    else await navigator.clipboard.writeText(message);
+    return;
+  }
+  await Share.share({ title: story.title, message, url });
 }
 
 export async function performStoryAction(action: GestureAction, story: Story, repository: ReaderRepository, preferences: AppPreferences, suppressHaptics = false): Promise<void> {

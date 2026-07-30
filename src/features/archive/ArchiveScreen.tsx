@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { FEED_KINDS, type FeedArchiveRecord, type FeedKind, type Story } from '../../core/models.ts';
-import { FEED_LABELS, formatNumber, formatRelativeTime } from '../../core/format.ts';
+import { FEED_LABELS, formatNumber, formatTimeAgo } from '../../core/format.ts';
 import { useAppServices, usePreferences } from '../../app/AppServices.tsx';
 import { Screen } from '../../components/Screen.tsx';
 import { DetailHeader, HorizontalControls } from '../../components/Header.tsx';
@@ -73,7 +73,7 @@ export function ArchiveScreen() {
             <Surface style={[styles.dateCard, selectedRecord && styles.selectedDate]}>
               <ThemedText variant="meta" accent={selectedRecord}>{FEED_LABELS[record.feed]}</ThemedText>
               <ThemedText variant="headline">{archiveDateLabel(record.date)}</ThemedText>
-              <ThemedText variant="caption" muted>{formatNumber(record.storyIds.length, preferences.compactNumbers)} stories · captured {formatRelativeTime(record.capturedAt)} ago</ThemedText>
+              <ThemedText variant="caption" muted>{formatNumber(record.storyIds.length, preferences.compactNumbers)} stories · captured {formatTimeAgo(record.capturedAt)}</ThemedText>
             </Surface>
           </Pressable>;
         })}

@@ -5,6 +5,7 @@ import * as Crypto from 'expo-crypto';
 import type { FeedPreset, FeedWeights } from '../../core/models.ts';
 import { DEFAULT_FEED_PRESET } from '../../core/ranking.ts';
 import { useAppServices, usePreferences } from '../../app/AppServices.tsx';
+import { confirmAction } from '../../app/dialogs.ts';
 import { Screen } from '../../components/Screen.tsx';
 import { DetailHeader } from '../../components/Header.tsx';
 import { Section } from '../../components/Section.tsx';
@@ -39,7 +40,7 @@ export function PresetScreen() {
     await controller.update({ activePresetId: next.id });
     setEditing(null); await reload();
   };
-  const remove = (preset: FeedPreset) => Alert.alert('Delete preset?', preset.name, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: () => void database.repository.deletePreset(preset.id).then(async (deleted) => { if (deleted && preferences.activePresetId === preset.id) await controller.update({ activePresetId: DEFAULT_FEED_PRESET.id }); await reload(); }) }]);
+  const remove = (preset: FeedPreset) => confirmAction({ title: 'Delete preset?', message: preset.name, confirmLabel: 'Delete', destructive: true, onConfirm: () => database.repository.deletePreset(preset.id).then(async (deleted) => { if (deleted && preferences.activePresetId === preset.id) await controller.update({ activePresetId: DEFAULT_FEED_PRESET.id }); await reload(); }) });
 
   if (loading) return <Screen edges={['top']}><DetailHeader title="Feed algorithms" /><LoadingState label="Loading feed presets…" /></Screen>;
   return <Screen edges={['top']}>

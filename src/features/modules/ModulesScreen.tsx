@@ -5,6 +5,7 @@ import { DEFAULT_MODULE_CONFIGURATION, exportModuleConfiguration, importModuleCo
 import type { ModuleDefinition, ModulePlacement } from '../../../module-sdk/types.ts';
 import { useAppServices, useModuleConfiguration } from '../../app/AppServices.tsx';
 import { pickTextFile, shareTextFile } from '../../app/file-exchange.ts';
+import { confirmAction } from '../../app/dialogs.ts';
 import { enabledDependents } from '../../modules/runtime.ts';
 import { Screen } from '../../components/Screen.tsx';
 import { ScreenHeader } from '../../components/Header.tsx';
@@ -31,14 +32,13 @@ function ModuleCard({ definition }: { definition: ModuleDefinition }) {
   const toggle = (next: boolean) => {
     if (definition.required && !next) return;
     if (!next && dependents.length > 0) {
-      Alert.alert(
-        `Disable ${definition.name}?`,
-        `This also disables ${dependents.map((module) => module.name).join(', ')} because ${dependents.length === 1 ? 'it depends' : 'they depend'} on ${definition.name}. Local data is preserved.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Disable', style: 'destructive', onPress: () => void modules.setEnabled(definition.id, false) }
-        ]
-      );
+      confirmAction({
+        title: `Disable ${definition.name}?`,
+        message: `This also disables ${dependents.map((module) => module.name).join(', ')} because ${dependents.length === 1 ? 'it depends' : 'they depend'} on ${definition.name}. Local data is preserved.`,
+        confirmLabel: 'Disable',
+        destructive: true,
+        onConfirm: () => modules.setEnabled(definition.id, false)
+      });
       return;
     }
     void modules.setEnabled(definition.id, next);
@@ -87,10 +87,7 @@ export function ModulesScreen() {
     Alert.alert('Setup imported', `${next.enabled.length} modules are enabled. ${next.tabOrder.length} appear as tabs and ${next.moreOrder.length} appear under More.`);
   };
 
-  const reset = () => Alert.alert('Restore default modules?', 'This changes module visibility, placement, order, and the home screen. Cached stories and all local library data remain untouched.', [
-    { text: 'Cancel', style: 'cancel' },
-    { text: 'Restore', style: 'destructive', onPress: () => void modules.reset() }
-  ]);
+  const reset = () => confirmAction({ title: 'Restore default modules?', message: 'This changes module visibility, placement, order, and the home screen. Cached stories and all local library data remain untouched.', confirmLabel: 'Restore', destructive: true, onConfirm: () => modules.reset() });
 
   return <Screen edges={['top']}>
     <ScreenHeader title="Modules" subtitle={`${enabledCount} of ${BUILTIN_MODULES.length} enabled · ${configuration.tabOrder.length} tabs · ${configuration.moreOrder.length} in More`} />

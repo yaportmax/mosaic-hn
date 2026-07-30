@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import type { HnUser, Story } from '../../core/models.ts';
-import { formatNumber, formatRelativeTime, hnUserUrl } from '../../core/format.ts';
+import { formatNumber, formatTimeAgo, hnUserUrl } from '../../core/format.ts';
 import { useAppServices, usePreferences } from '../../app/AppServices.tsx';
 import { openUrl } from '../../app/actions.ts';
 import { Screen } from '../../components/Screen.tsx';
@@ -47,13 +47,13 @@ export function UserScreen({ id }: { id: string }) {
     return () => { active = false; controller.abort(); };
   }, [database.repository, id]);
 
-  const age = useMemo(() => user ? formatRelativeTime(user.created) : '', [user]);
+  const age = useMemo(() => user ? formatTimeAgo(user.created) : '', [user]);
   if (loading) return <Screen edges={['top']}><DetailHeader title={id} /><LoadingState label="Loading Hacker News profile…" /></Screen>;
   if (error && !user) return <Screen edges={['top']}><DetailHeader title={id} /><ErrorState message={error} /></Screen>;
   if (!user) return <Screen edges={['top']}><DetailHeader title={id} /><EmptyState title="Profile unavailable" body="This user may not exist or has not been cached." /></Screen>;
 
   return <Screen edges={['top']}>
-    <DetailHeader title={user.id} subtitle={`${formatNumber(user.karma, preferences.compactNumbers)} karma · joined ${age} ago`} actions={<Button label="Open on HN" icon="open-outline" variant="ghost" onPress={() => void openUrl(hnUserUrl(user.id), preferences.openLinks)} />} />
+    <DetailHeader title={user.id} subtitle={`${formatNumber(user.karma, preferences.compactNumbers)} karma · joined ${age}`} actions={<Button label="Open on HN" icon="open-outline" variant="ghost" onPress={() => void openUrl(hnUserUrl(user.id), preferences.openLinks)} />} />
     <ScrollView contentContainerStyle={styles.content}>
       <Surface style={styles.profile}><View style={styles.stats}><Stat label="Karma" value={formatNumber(user.karma, preferences.compactNumbers)} /><Stat label="Submissions" value={formatNumber(user.submitted.length, preferences.compactNumbers)} /><Stat label="Account age" value={age} /></View>{user.about ? <ThemedText>{user.about}</ThemedText> : <ThemedText muted>No profile text.</ThemedText>}</Surface>
       <View style={styles.section}><ThemedText variant="headline">Recent submitted stories</ThemedText><ThemedText variant="meta" muted>Up to 48 recent submissions plus any older stories already archived on this device.</ThemedText><StoryRows stories={stories} empty={<EmptyState title="No local stories" body="This account may primarily submit comments, or its stories have not been loaded yet." />} /></View>

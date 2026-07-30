@@ -7,8 +7,18 @@ const safeFileName = (name: string): string => name.replace(/[^a-z0-9._-]+/gi, '
 
 export async function shareTextFile(name: string, contents: string, mimeType: string): Promise<string> {
   if (Platform.OS === 'web') {
-    await Share.share({ title: name, message: contents });
-    return name;
+    const fileName = safeFileName(name);
+    const blob = new Blob([contents], { type: `${mimeType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    return fileName;
   }
   const file = new File(Paths.cache, safeFileName(name));
   if (file.exists) file.delete();

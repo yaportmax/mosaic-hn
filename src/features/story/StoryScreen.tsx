@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import type { CommentJumpKind } from '../../core/comments.ts';
-import type { CommentRow } from '../../core/models.ts';
+import type { CollectionRecord, CommentRow } from '../../core/models.ts';
 import { formatNumber, formatRelativeTime, hnItemUrl } from '../../core/format.ts';
 import { useStoryData } from '../../hooks/useStoryData.ts';
 import { openStory, openUrl, shareStory, subtleHaptic } from '../../app/actions.ts';
@@ -35,6 +35,8 @@ export function StoryScreen({ id }: { id: number }) {
   const [note, setNote] = useState('');
   const [tags, setTags] = useState('');
   const [notesOpen, setNotesOpen] = useState(false);
+  const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
+  const [collections, setCollections] = useState<CollectionRecord[]>([]);
 
   useEffect(() => { setNote(data.note); setTags(data.tags.join(', ')); }, [data.note, data.tags]);
   useEffect(() => { if (!libraryEnabled) setNotesOpen(false); }, [libraryEnabled]);
@@ -54,12 +56,14 @@ export function StoryScreen({ id }: { id: number }) {
 
   const addToCollection = async () => {
     if (!libraryEnabled) return;
-    const collections = await database.repository.listCollections();
-    if (!collections.length) { Alert.alert('No collections', 'Create a collection from the Library module first.'); return; }
-    Alert.alert('Add to collection', undefined, [
-      ...collections.slice(0, 8).map((collection) => ({ text: collection.name, onPress: () => void database.repository.addToCollection(collection.id, story.id) })),
-      { text: 'Cancel', style: 'cancel' }
-    ]);
+    const available = await database.repository.listCollections();
+    if (!available.length) { Alert.alert('No collections', 'Create a collection from the Library module first.'); return; }
+    setCollections(available);
+    setCollectionPickerOpen(true);
+  };
+  const selectCollection = async (collection: CollectionRecord) => {
+    await database.repository.addToCollection(collection.id, story.id);
+    setCollectionPickerOpen(false);
   };
 
   const authorMetadata = discoveryEnabled
@@ -72,6 +76,7 @@ export function StoryScreen({ id }: { id: number }) {
     : null;
 
   const storyLayout = theme.layout.story;
+  const relevantRelated = data.related.filter((item) => item.similarity >= 0.18).slice(0, 3);
   const summaryContent = <View style={[
     styles.summary,
     storyLayout === 'line' && styles.summaryLine,
@@ -86,16 +91,17 @@ export function StoryScreen({ id }: { id: number }) {
       <ThemedText variant="meta" muted>{formatNumber(story.descendants, preferences.compactNumbers)} comments</ThemedText>
       {domainMetadata}
     </View>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.actions}>
-      <Button label={story.url ? 'Read article' : 'Open on HN'} icon="open-outline" onPress={() => void openStory(story, preferences)} />
-      {libraryEnabled ? <>
-        <Button label={data.bookmarked ? 'Saved' : 'Save'} icon={data.bookmarked ? 'bookmark' : 'bookmark-outline'} variant="secondary" onPress={() => void data.toggleBookmark()} />
-        <Button label={data.queued ? 'Queued' : 'Queue'} icon={data.queued ? 'time' : 'time-outline'} variant="secondary" onPress={() => void data.toggleQueue()} />
-        <Button label="Collect" icon="folder-outline" variant="secondary" onPress={() => void addToCollection()} />
-      </> : null}
-      <Button label="Share" icon="share-outline" variant="ghost" onPress={() => void shareStory(story)} />
-      <Button label="HN thread" icon="logo-y-combinator" variant="ghost" onPress={() => void openUrl(hnItemUrl(story.id), preferences.openLinks)} />
-    </ScrollView>
+    <View style={styles.actionStack}>
+      <View style={styles.primaryActions}>
+        <Button label={story.url ? 'Read article' : 'Open on HN'} icon="open-outline" onPress={() => void openStory(story, preferences)} style={styles.readButton} />
+        {libraryEnabled ? <><IconButton icon={data.bookmarked ? 'bookmark' : 'bookmark-outline'} label={data.bookmarked ? 'Remove bookmark' : 'Save story'} onPress={() => void data.toggleBookmark()} /><IconButton icon={data.queued ? 'time' : 'time-outline'} label={data.queued ? 'Remove from queue' : 'Add to queue'} onPress={() => void data.toggleQueue()} /></> : null}
+      </View>
+      <View style={styles.secondaryActions}>
+        {libraryEnabled ? <Button label="Collect" icon="folder-outline" variant="ghost" onPress={() => void addToCollection()} style={styles.secondaryAction} /> : null}
+        <Button label="Share" icon="share-outline" variant="ghost" onPress={() => void shareStory(story)} style={styles.secondaryAction} />
+        <Button label="HN thread" icon="logo-hackernews" variant="ghost" onPress={() => void openUrl(hnItemUrl(story.id), preferences.openLinks)} style={styles.secondaryAction} />
+      </View>
+    </View>
   </View>;
   const summary = storyLayout === 'card'
     ? <Surface elevated style={styles.summaryCard}>{summaryContent}</Surface>
@@ -128,7 +134,7 @@ export function StoryScreen({ id }: { id: number }) {
         <Button label="Save locally" onPress={() => void Promise.all([data.saveNote(note), data.saveTags(tags.split(',').map((value) => value.trim()).filter(Boolean))])} />
       </Surface> : null}
     </Section> : null}
-    {discoveryEnabled && data.related.length ? <Section title="Related in your archive" caption="Local deterministic title and text similarity."><View style={styles.related}>{data.related.map(({ story: related, similarity }) => <Pressable key={related.id} onPress={() => router.push({ pathname: '/story/[id]', params: { id: String(related.id) } })} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.relatedCard}><ThemedText variant="headline">{related.title}</ThemedText><ThemedText variant="caption" muted>{related.domain ?? 'HN'} · similarity {Math.round(similarity * 100)}%</ThemedText></Surface></Pressable>)}</View></Section> : null}
+    {discoveryEnabled && relevantRelated.length ? <Section title="Related in your archive" caption="Strong local title and text matches."><View style={styles.related}>{relevantRelated.map(({ story: related, similarity }) => <Pressable key={related.id} accessibilityRole="button" accessibilityLabel={`Open related story ${related.title}`} onPress={() => router.push({ pathname: '/story/[id]', params: { id: String(related.id) } })} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.relatedCard}><ThemedText variant="headline">{related.title}</ThemedText><ThemedText variant="caption" muted>{related.domain ?? 'HN'} · {Math.round(similarity * 100)}% match</ThemedText></Surface></Pressable>)}</View></Section> : null}
     {discussionHeader}
   </View>;
 
@@ -147,6 +153,15 @@ export function StoryScreen({ id }: { id: number }) {
       />
       {commentsEnabled && data.rows.length > 0 ? <ThreadMinimap rows={data.rows} onSelect={(index) => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 })} /> : null}
     </View>
+    {collectionPickerOpen ? <View accessibilityViewIsModal style={styles.modal}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close collection picker" style={StyleSheet.absoluteFill} onPress={() => setCollectionPickerOpen(false)} />
+        <Surface elevated style={styles.picker}>
+          <View style={styles.pickerHeader}><View style={styles.pickerCopy}><ThemedText variant="title">Add to collection</ThemedText><ThemedText variant="meta" muted numberOfLines={2}>{story.title}</ThemedText></View><IconButton icon="close" label="Close" onPress={() => setCollectionPickerOpen(false)} /></View>
+          <ScrollView style={styles.pickerList} contentContainerStyle={styles.pickerListContent}>
+            {collections.map((collection) => <Pressable key={collection.id} accessibilityRole="button" accessibilityLabel={`Add to ${collection.name}`} onPress={() => void selectCollection(collection)} style={({ pressed }) => [styles.pickerRow, { borderBottomColor: theme.tokens.colors.border, opacity: pressed ? 0.62 : 1 }]}><View style={styles.pickerCopy}><ThemedText variant="headline">{collection.name}</ThemedText><ThemedText variant="caption" muted>{collection.itemIds.length} saved {collection.itemIds.length === 1 ? 'item' : 'items'}</ThemedText></View><ThemedText accent style={{ fontWeight: '800' }}>Add</ThemedText></Pressable>)}
+          </ScrollView>
+        </Surface>
+      </View> : null}
   </Screen>;
 }
 
@@ -159,7 +174,11 @@ const styles = StyleSheet.create({
   summaryEditorial: { gap: 16, paddingVertical: 20, borderBottomWidth: StyleSheet.hairlineWidth },
   meta: { flexDirection: 'row', flexWrap: 'wrap', gap: 9 },
   metaCompact: { gap: 6 },
-  actions: { gap: 8, paddingRight: 16 },
+  actionStack: { gap: 4 },
+  primaryActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  readButton: { flex: 1 },
+  secondaryActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  secondaryAction: { flex: 1, paddingHorizontal: 7 },
   storyText: { padding: 16 },
   storyTextLine: { paddingVertical: 10 },
   sectionSurface: { padding: 14 },
@@ -168,5 +187,12 @@ const styles = StyleSheet.create({
   tagInput: { minHeight: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
   related: { gap: 8 },
   relatedCard: { padding: 13, gap: 4 },
-  commentsTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginTop: 4 }
+  commentsTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginTop: 4 },
+  modal: { ...StyleSheet.absoluteFillObject, zIndex: 50, elevation: 50, justifyContent: 'flex-end', padding: 12, paddingBottom: 28, backgroundColor: 'rgba(0,0,0,0.58)' },
+  picker: { maxHeight: '68%', padding: 14, gap: 12 },
+  pickerHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pickerCopy: { flex: 1, minWidth: 0, gap: 2 },
+  pickerList: { flexGrow: 0 },
+  pickerListContent: { paddingBottom: 4 },
+  pickerRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth }
 });

@@ -7,13 +7,13 @@ const cloneTables = (source: Map<string, Map<string, unknown>>): Map<string, Map
 };
 
 export class MemoryDatabaseAdapter implements DatabaseAdapter {
-  private tables: Map<string, Map<string, unknown>>;
+  protected tables: Map<string, Map<string, unknown>>;
 
   constructor(initial?: Map<string, Map<string, unknown>>) {
     this.tables = initial ? cloneTables(initial) : new Map();
   }
 
-  private table(name: string): Map<string, unknown> {
+  protected table(name: string): Map<string, unknown> {
     let table = this.tables.get(name);
     if (!table) { table = new Map(); this.tables.set(name, table); }
     return table;

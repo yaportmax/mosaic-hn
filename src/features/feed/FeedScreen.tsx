@@ -4,7 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { router } from 'expo-router';
 import type { FeedKind } from '../../core/models.ts';
 import { FEED_KINDS } from '../../core/models.ts';
-import { FEED_LABELS, formatRelativeTime } from '../../core/format.ts';
+import { FEED_LABELS, formatTimeAgo } from '../../core/format.ts';
 import { useFeedData } from '../../hooks/useFeedData.ts';
 import { useAppServices, useModuleEnabled, usePreferences } from '../../app/AppServices.tsx';
 import { performStoryAction } from '../../app/actions.ts';
@@ -42,7 +42,7 @@ export function FeedScreen() {
   const subtitle = useMemo(() => {
     const mode = algorithmsEnabled ? data.preset.name : 'Official HN order';
     if (!data.lastUpdated) return algorithmsEnabled ? `${mode} local ranking` : mode;
-    return `${mode} · updated ${formatRelativeTime(data.lastUpdated)} ago${automationEnabled && data.hiddenCount ? ` · ${data.hiddenCount} hidden` : ''}`;
+    return `${mode} · updated ${formatTimeAgo(data.lastUpdated)}${automationEnabled && data.hiddenCount ? ` · ${data.hiddenCount} hidden` : ''}`;
   }, [algorithmsEnabled, automationEnabled, data.hiddenCount, data.lastUpdated, data.preset.name]);
 
   return <Screen edges={['top']}>

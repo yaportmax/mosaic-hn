@@ -4,8 +4,8 @@ import { router } from 'expo-router';
 import { IconButton } from './Button.tsx';
 import { ThemedText } from './ThemedText.tsx';
 
-export function ScreenHeader({ title, subtitle, actions, large = true }: { title: string; subtitle?: string; actions?: ReactNode; large?: boolean }) {
-  return <View style={styles.header}><View style={styles.copy}><ThemedText variant={large ? 'display' : 'title'} numberOfLines={1}>{title}</ThemedText>{subtitle ? <ThemedText variant="meta" muted numberOfLines={1}>{subtitle}</ThemedText> : null}</View><View style={styles.actions}>{actions}<IconButton icon="terminal-outline" label="Open command palette" onPress={() => router.push('/command')} /></View></View>;
+export function ScreenHeader({ title, subtitle, actions, large = true, showCommand = false }: { title: string; subtitle?: string; actions?: ReactNode; large?: boolean; showCommand?: boolean }) {
+  return <View style={styles.header}><View style={styles.copy}><ThemedText variant={large ? 'display' : 'title'} numberOfLines={1}>{title}</ThemedText>{subtitle ? <ThemedText variant="meta" muted numberOfLines={1}>{subtitle}</ThemedText> : null}</View><View style={styles.actions}>{actions}{showCommand ? <IconButton icon="terminal-outline" label="Open command palette" onPress={() => router.push('/command')} /> : null}</View></View>;
 }
 
 export function DetailHeader({ title, subtitle, actions }: { title: string; subtitle?: string; actions?: ReactNode }) {
