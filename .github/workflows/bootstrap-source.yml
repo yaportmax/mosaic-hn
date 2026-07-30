@@ -29,7 +29,7 @@ jobs:
           shopt -s nullglob
 
           parts=(bootstrap/payload/source.tar.gz.b64.part-*)
-          test "${#parts[@]}" -eq 5
+          test "${#parts[@]}" -eq 11
           cat "${parts[@]}" | tr -d '\r\n' | base64 --decode > /tmp/mosaic-hn-source.tar.gz
           echo "405e08d14382a0e051e779b36a7083fcac778f2e14122067301609f825dd12de  /tmp/mosaic-hn-source.tar.gz" | sha256sum -c -
           gzip -t /tmp/mosaic-hn-source.tar.gz
