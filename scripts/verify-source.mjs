@@ -92,7 +92,7 @@ const allFiles = await walk(root);
 const textByFile = new Map();
 for (const path of allFiles) {
   if (!/\.(?:ts|tsx|js|mjs|cjs|json|md|ya?ml)$/.test(path)) continue;
-  const file = relative(root, path);
+  const file = relative(root, path).replaceAll('\\', '/');
   const text = await readFile(path, 'utf8');
   textByFile.set(file, text);
   if (file !== 'scripts/verify-source.mjs' && /\b(?:TODO|TBD|FIXME)\b/.test(text) && !file.includes('docs/superpowers/')) failures.push(`${file}: contains unfinished marker`);
@@ -111,7 +111,6 @@ for (const required of ['src/modules/*.test.ts', 'module-sdk/*.test.ts']) {
 }
 for (const name of dependencyNames) {
   if (/sentry|segment|amplitude|mixpanel|openai|anthropic/i.test(name)) failures.push(`package.json: prohibited dependency ${name}`);
-  if (['react-dom', 'react-native-web'].includes(name)) failures.push(`package.json: mobile release must not include ${name}`);
 }
 
 function packageRoot(specifier) {
@@ -152,7 +151,10 @@ for (const [file, text] of textByFile) {
 }
 
 const appConfig = textByFile.get('app.config.ts') ?? '';
-for (const required of ["platforms: ['ios', 'android']", "bundleIdentifier: 'com.maxyaport.mosaichn'", "package: 'com.maxyaport.mosaichn'", 'newArchEnabled: true']) {
+if (!["platforms: ['ios', 'android']", "platforms: ['ios', 'android', 'web']"].some((platforms) => appConfig.includes(platforms))) {
+  failures.push("app.config.ts: missing required iOS and Android platforms");
+}
+for (const required of ["bundleIdentifier: 'com.maxyaport.mosaichn'", "package: 'com.maxyaport.mosaichn'", 'newArchEnabled: true']) {
   if (!appConfig.includes(required)) failures.push(`app.config.ts: missing ${required}`);
 }
 for (const prohibited of ['reactCompiler', 'UIFileSharingEnabled', 'LSSupportsOpeningDocumentsInPlace']) {

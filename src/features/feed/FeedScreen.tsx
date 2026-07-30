@@ -46,8 +46,8 @@ export function FeedScreen() {
   }, [algorithmsEnabled, automationEnabled, data.hiddenCount, data.lastUpdated, data.preset.name]);
 
   return <Screen edges={['top']}>
-    <ScreenHeader title="Mosaic HN" subtitle={subtitle} actions={algorithmsEnabled ? <IconButton icon="options-outline" label="Feed presets" onPress={() => router.push('/presets')} /> : undefined} />
-    <HorizontalControls>{FEED_KINDS.map((kind) => <Chip key={kind} label={FEED_LABELS[kind]} selected={feed === kind} onPress={() => setFeed(kind)} />)}</HorizontalControls>
+    <ScreenHeader title="Mosaic HN" subtitle={subtitle} large={false} actions={algorithmsEnabled ? <IconButton icon="options-outline" label="Feed presets" onPress={() => router.push('/presets')} /> : undefined} />
+    <HorizontalControls>{FEED_KINDS.map((kind) => <Chip key={kind} label={FEED_LABELS[kind]} compact selected={feed === kind} onPress={() => setFeed(kind)} />)}</HorizontalControls>
     {data.offline ? <OfflineBanner /> : null}
     {data.loading && data.items.length === 0 ? <LoadingState label={`Loading ${FEED_LABELS[feed]} stories…`} /> : data.error && data.items.length === 0 ? <ErrorState message={data.error} onRetry={() => void data.refresh()} /> : data.items.length === 0 ? <EmptyState icon="newspaper-outline" title="Nothing here yet" body={data.offline ? 'Open this feed once while online to archive it locally.' : 'Hacker News returned no stories for this feed.'} actionLabel="Refresh" onAction={() => void data.refresh()} /> : <FlashList
       data={data.items}

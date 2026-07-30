@@ -154,7 +154,7 @@ function StoryCardComponent({ item, index, onOpenStory, onAction, bookmarked = f
       <View style={[styles.actionSide, { backgroundColor: toneColor(leftAppearance.tone) }]} accessibilityLabel={leftAppearance.label}><Ionicons name={leftAppearance.icon as never} color="#FFFFFF" size={23} /></View>
       <View style={[styles.actionSide, { backgroundColor: toneColor(rightAppearance.tone) }]} accessibilityLabel={rightAppearance.label}><Ionicons name={rightAppearance.icon as never} color="#FFFFFF" size={23} /></View>
     </View>
-    <GestureDetector gesture={pan}><Animated.View style={animatedStyle}>{layout === 'cards' || layout === 'magazine' ? <Surface elevated>{body}</Surface> : body}</Animated.View></GestureDetector>
+    <GestureDetector gesture={pan}><Animated.View style={[animatedStyle, { backgroundColor: theme.tokens.colors.background }]}>{layout === 'cards' || layout === 'magazine' ? <Surface elevated>{body}</Surface> : body}</Animated.View></GestureDetector>
   </View>;
 }
 

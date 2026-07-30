@@ -6,7 +6,7 @@ const config: ExpoConfig = {
   version: '1.0.0',
   description: 'A local-first, deeply customizable, open-source Hacker News reader.',
   githubUrl: 'https://github.com/yaportmax/mosaic-hn',
-  platforms: ['ios', 'android'],
+  platforms: ['ios', 'android', 'web'],
   orientation: 'default',
   icon: './assets/icon.png',
   scheme: 'mosaichn',
@@ -32,7 +32,7 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: true
   },
   plugins: [
-    'expo-router',
+    ['expo-router', { root: './app' }],
     ['expo-splash-screen', { image: './assets/splash-icon.png', imageWidth: 180, resizeMode: 'contain', backgroundColor: '#0E0E10', dark: { backgroundColor: '#0E0E10' } }],
     ['expo-sqlite', { enableFTS: true, useSQLCipher: false }],
     'expo-document-picker'

@@ -13,6 +13,20 @@ export function DetailHeader({ title, subtitle, actions }: { title: string; subt
 }
 
 export function HorizontalControls({ children }: { children: ReactNode }) {
-  return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.controls}>{children}</ScrollView>;
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.controlsRail} contentContainerStyle={styles.controls}>{children}</ScrollView>;
 }
-const styles = StyleSheet.create({ header: { minHeight: 72, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 12 }, copy: { flex: 1, minWidth: 0 }, actions: { flexDirection: 'row', alignItems: 'center', gap: 8 }, controls: { paddingHorizontal: 14, paddingBottom: 10, gap: 8 } });
+const styles = StyleSheet.create({
+  header: {
+    minHeight: 62,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 6,
+    gap: 10,
+  },
+  copy: { flex: 1, minWidth: 0 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  controlsRail: { flexGrow: 0, flexShrink: 0, height: 44 },
+  controls: { alignItems: 'center', paddingHorizontal: 12, paddingTop: 2, paddingBottom: 8, gap: 6 },
+});

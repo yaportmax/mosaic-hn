@@ -39,7 +39,7 @@ export class HnClient {
 
   constructor(options: HnClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? 'https://hacker-news.firebaseio.com/v0').replace(/\/$/, '');
-    this.fetcher = options.fetcher ?? fetch;
+    this.fetcher = options.fetcher ?? globalThis.fetch.bind(globalThis);
     this.concurrency = Math.max(1, Math.trunc(options.concurrency ?? 12));
     this.requestTimeoutMs = Math.max(50, Math.trunc(options.requestTimeoutMs ?? 15_000));
   }

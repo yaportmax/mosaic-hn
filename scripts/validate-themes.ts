@@ -1,5 +1,5 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { isAbsolute, relative, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { validateThemePackage } from '../theme-sdk/validate.ts';
 
@@ -35,7 +35,8 @@ if (registry.version !== 1 || !Array.isArray(registry.themes) || registry.themes
     try {
       if (typeof entry.downloadUrl !== 'string' || !entry.downloadUrl.startsWith('./builtin/')) throw new Error('downloadUrl must be a bundled relative path');
       const filePath = resolve(themesRoot, entry.downloadUrl.replace(/^\.\//, ''));
-      if (!filePath.startsWith(`${directory}/`)) throw new Error('downloadUrl escapes the built-in theme directory');
+      const relativePath = relative(directory, filePath);
+      if (!relativePath || relativePath.startsWith('..') || isAbsolute(relativePath)) throw new Error('downloadUrl escapes the built-in theme directory');
       const contents = await readFile(filePath, 'utf8');
       const theme = JSON.parse(contents) as { manifest?: { id?: unknown; version?: unknown; name?: unknown; author?: unknown; minAppVersion?: unknown } };
       const digest = createHash('sha256').update(contents).digest('hex');
