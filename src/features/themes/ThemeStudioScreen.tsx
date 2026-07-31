@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
-import type { ColorSchemeName, CommentLayout, FeedLayout, FontFamilyToken, MetadataLayout, NavigationLayout, StoryLayout, ThemePackage, ThemeTokens } from '../../../theme-sdk/types.ts';
+import type { ColorSchemeName, CommentLayout, FeedLayout, FontFamilyToken, MetadataLayout, StoryLayout, ThemePackage, ThemeTokens } from '../../../theme-sdk/types.ts';
 import { validateThemePackage } from '../../../theme-sdk/validate.ts';
 import { getBuiltinTheme } from '../../design/builtins.ts';
 import { APP_VERSION } from '../../design/constants.ts';
@@ -97,15 +97,6 @@ export function ThemeStudioScreen({ id }: { id?: string }) {
     }
   };
 
-  const chooseNavigation = (navigation: NavigationLayout) => setDraft((existing) => ({
-    ...existing,
-    layout: {
-      ...existing.layout,
-      navigation,
-      shell: navigation === 'floating' ? 'floating-tabs' : 'tabs'
-    }
-  }));
-
   return <Screen edges={['top']}>
     <DetailHeader title="Customize theme" subtitle="Every choice updates the preview" />
     <ScrollView stickyHeaderIndices={[0]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -138,11 +129,10 @@ export function ThemeStudioScreen({ id }: { id?: string }) {
         <NumberChoice label="Shadow" values={[0, 0.18, 0.35]} labels={['Off', 'Soft', 'Strong']} selected={tokens.effects.shadow} onSelect={(shadow) => updateTokens((target) => { target.effects.shadow = shadow; })} />
       </Section>
 
-      <Section title="Screen layouts" caption="These choices change the real feed, story rows, discussion, and bottom navigation.">
+      <Section title="Screen layouts" caption="These choices change content presentation. The four-tab phone navigation always stays familiar and usable.">
         <NamedChoice<FeedLayout> label="Feed" values={['compact', 'comfortable', 'cards', 'magazine']} labels={{ compact: 'Compact', comfortable: 'Comfortable', cards: 'Cards', magazine: 'Magazine' }} selected={draft.layout.feed} onSelect={(value) => updateLayout('feed', value)} />
         <NamedChoice<StoryLayout> label="Story rows" values={['line', 'row', 'card', 'editorial']} labels={{ line: 'Minimal', row: 'Balanced', card: 'Cards', editorial: 'Headlines' }} selected={draft.layout.story} onSelect={(value) => updateLayout('story', value)} />
         <NamedChoice<CommentLayout> label="Discussion" values={['threads', 'ledger', 'conversation']} labels={{ threads: 'Threaded', ledger: 'Compact', conversation: 'Conversation' }} selected={draft.layout.comments} onSelect={(value) => updateLayout('comments', value)} />
-        <NamedChoice<NavigationLayout> label="Bottom navigation" values={['standard', 'floating', 'minimal']} labels={{ standard: 'Standard', floating: 'Floating', minimal: 'Icons only' }} selected={draft.layout.navigation} onSelect={chooseNavigation} />
         <NamedChoice<MetadataLayout> label="Story details" values={['inline', 'stacked', 'footer']} labels={{ inline: 'One line', stacked: 'Two lines', footer: 'Below title' }} selected={draft.layout.metadata} onSelect={(value) => updateLayout('metadata', value)} />
       </Section>
 

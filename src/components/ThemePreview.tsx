@@ -11,7 +11,7 @@ export function ThemePreview({ themePackage, active = false, onPress, compact = 
   const rowCount = compact ? 2 : feedLayout === 'compact' ? 4 : 3;
   const rowHeight = compact ? 27 : feedLayout === 'compact' ? 29 : feedLayout === 'comfortable' ? 40 : feedLayout === 'magazine' ? 48 : 44;
   const fontFamily = fontFamilyFor(tokens.typography.fontFamily);
-  const floatingNav = themePackage.layout.navigation === 'floating' || themePackage.layout.shell === 'floating-tabs';
+  const glass = tokens.effects.glass;
 
   const preview = <View style={[styles.shell, {
     padding: compact ? 9 : 13,
@@ -57,10 +57,10 @@ export function ThemePreview({ themePackage, active = false, onPress, compact = 
       </View>;
     })}</View>
 
-    <View style={[styles.nav, floatingNav && styles.navFloating, {
+    <View style={[styles.nav, glass && styles.navFloating, {
       backgroundColor: tokens.colors.surface,
       borderColor: tokens.colors.border,
-      borderRadius: floatingNav ? Math.max(12, tokens.shape.radius) : Math.max(7, tokens.shape.radius * 0.65)
+      borderRadius: glass ? Math.max(12, tokens.shape.radius) : Math.max(7, tokens.shape.radius * 0.65)
     }]}>
       {[0, 1, 2, 3].map((item) => <View key={item} style={[styles.navItem, { backgroundColor: item === 0 ? tokens.colors.accent : tokens.colors.mutedText }]} />)}
     </View>

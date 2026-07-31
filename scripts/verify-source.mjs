@@ -164,14 +164,19 @@ for (const prohibited of ['reactCompiler', 'UIFileSharingEnabled', 'LSSupportsOp
 const surface = textByFile.get('src/components/Surface.tsx') ?? '';
 if (!surface.includes('isLiquidGlassAvailable()') || !surface.includes('isGlassEffectAPIAvailable()')) failures.push('src/components/Surface.tsx: native glass availability guards are incomplete');
 const themeUsage = {
-  shell: textByFile.get('src/components/MosaicTabBar.tsx') ?? '',
-  navigation: textByFile.get('src/components/MosaicTabBar.tsx') ?? '',
   feed: textByFile.get('src/components/StoryCard.tsx') ?? '',
   metadata: textByFile.get('src/components/StoryCard.tsx') ?? '',
   comments: textByFile.get('src/components/CommentRow.tsx') ?? '',
   story: textByFile.get('src/features/story/StoryScreen.tsx') ?? ''
 };
 for (const [key, text] of Object.entries(themeUsage)) if (!text.includes(`layout.${key}`)) failures.push(`theme runtime: layout.${key} is declared but not rendered`);
+const tabLayout = textByFile.get('app/(tabs)/_layout.tsx') ?? '';
+const tabBar = textByFile.get('src/components/MosaicTabBar.tsx') ?? '';
+if (!tabLayout.includes("tabBarPosition: 'bottom'")) failures.push('phone navigation: tab bar must remain at the bottom');
+if (/theme\.layout\.(?:shell|navigation)/.test(`${tabLayout}\n${tabBar}`)) failures.push('phone navigation: themes must not change the app shell');
+for (const label of ["label: 'Feed'", "label: 'Search'", "label: 'Library'", "label: 'Settings'"]) {
+  if (!tabBar.includes(label)) failures.push(`phone navigation: missing stable primary tab ${label}`);
+}
 
 const repository = textByFile.get('src/db/reader-repository.ts') ?? '';
 for (const required of ['getMany<', 'MAX_STORY_SNAPSHOTS = 256', 'SNAPSHOT_MIN_INTERVAL_SECONDS = 30 * 60', 'MAX_FEED_ARCHIVE_DAYS = 365', 'listFeedArchive(', 'getArchivedFeed(']) {
