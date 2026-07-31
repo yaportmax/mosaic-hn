@@ -54,7 +54,7 @@ export function FeedScreen() {
       keyExtractor={(item) => String(item.story.id)}
       renderItem={({ item, index }) => <StoryCard item={item} index={index} onOpenStory={openStory} onAction={action} bookmarked={data.bookmarkedIds.has(item.story.id)} queued={data.queuedIds.has(item.story.id)} />}
       ItemSeparatorComponent={separator}
-      contentContainerStyle={{ paddingHorizontal: theme.layout.feed === 'cards' || theme.layout.feed === 'magazine' ? 10 : 0, paddingBottom: theme.layout.shell === 'floating-tabs' ? 116 : 90 }}
+      contentContainerStyle={{ paddingHorizontal: theme.layout.feed === 'cards' || theme.layout.feed === 'magazine' ? 10 : 0, paddingBottom: theme.tokens.effects.glass ? 116 : 90 }}
       refreshControl={<RefreshControl refreshing={data.refreshing} onRefresh={() => void data.refresh()} tintColor={theme.tokens.colors.accent} colors={[theme.tokens.colors.accent]} />}
       maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
       drawDistance={900}

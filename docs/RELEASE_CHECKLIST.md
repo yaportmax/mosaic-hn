@@ -20,7 +20,7 @@
 - [ ] Run the matrix and budgets in `docs/PERFORMANCE.md` using production builds.
 - [ ] Test VoiceOver, TalkBack, Dynamic Type/font scaling, high contrast, reduced motion, and reduced transparency.
 - [ ] Test cold start, cached warm start, airplane mode, poor network, interrupted refresh, and database migration.
-- [ ] Test iPhone 60 Hz and 120 Hz scrolling, Android low/mid-range scrolling, and iPad sidebar/split-view behavior.
+- [ ] Test iPhone 60 Hz and 120 Hz scrolling and Android low/mid-range scrolling.
 - [ ] Capture cold-start and steady-state memory traces across repeated feed/story/comment navigation.
 - [ ] Test every built-in theme in light, dark, and applicable high-contrast modes.
 - [ ] Import malformed, oversized, incompatible, low-contrast, and hash-mismatched theme packages.

@@ -1,6 +1,6 @@
 # Theme authoring
 
-A Mosaic HN theme is a declarative JSON package. It can produce a substantially different application shell while remaining inspectable and safe.
+A Mosaic HN theme is a declarative JSON package. It can produce a substantially different visual system while remaining inspectable and safe. The phone app always keeps Feed, Search, Library, and Settings in a labeled bottom tab bar.
 
 ## Package shape
 
@@ -36,11 +36,11 @@ Start with `theme-sdk/example-theme.json` or duplicate a bundled theme.
 
 ## Layout values
 
-- Shell: `tabs`, `floating-tabs`, `sidebar`
+- Shell: retained for package compatibility; ignored by the phone runtime
 - Feed: `compact`, `comfortable`, `cards`, `magazine`
 - Story: `line`, `row`, `card`, `editorial`
 - Comments: `threads`, `ledger`, `conversation`
-- Navigation: `standard`, `floating`, `minimal`
+- Navigation: retained for package compatibility; ignored by the phone runtime
 - Metadata: `inline`, `stacked`, `footer`
 
 ## Tokens

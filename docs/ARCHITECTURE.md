@@ -80,7 +80,7 @@ Module configuration and setup import/export require no network service. Mosaic 
 
 ## Platform behavior
 
-Expo Router uses native stacks and system back gestures. Registry-derived navigation modules can appear in phone tabs, the More destination, or a wide-tablet sidebar. Supported iOS versions with Liquid Glass render native glass surfaces when selected; other platforms receive the same tokens through opaque surfaces.
+Expo Router uses native stacks and system back gestures. The phone shell always exposes Feed, Search, Library, and Settings in a labeled bottom tab bar; additional destinations live inside Settings. Supported iOS versions render the Liquid Glass theme through the native glass API. Web and older platforms use a readable blur-and-highlight fallback.
 
 The route graph is static for native reliability and deep linking, while module configuration controls whether each route is reachable and whether its behavior runs. This avoids dynamic code loading without sacrificing user-controlled composition.
 

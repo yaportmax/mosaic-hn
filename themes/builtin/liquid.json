@@ -1,22 +1,22 @@
 {
   "manifest": {
     "id": "org.mosaichn.liquid",
-    "name": "Liquid",
+    "name": "Liquid Glass",
     "author": "Mosaic HN",
     "version": "1.0.0",
     "minAppVersion": "1.0.0",
     "license": "MIT",
-    "description": "Translucent, layered navigation with native Liquid Glass on supported iOS versions."
+    "description": "Uses Apple Liquid Glass on supported iOS. Web and older devices use a blur-and-highlight fallback."
   },
   "tokens": {
     "light": {
       "colors": {
-        "background": "#EAF3FF",
-        "surface": "#FFFFFFDD",
+        "background": "#DFECFA",
+        "surface": "#FFFFFF82",
         "text": "#0B1220",
         "mutedText": "#4B5D78",
-        "accent": "#2864DC",
-        "border": "#B8C8E0",
+        "accent": "#2668E8",
+        "border": "#FFFFFFB8",
         "success": "#147D64",
         "warning": "#956300",
         "danger": "#C22F2F"
@@ -48,12 +48,12 @@
     },
     "dark": {
       "colors": {
-        "background": "#07111F",
-        "surface": "#15243BDD",
+        "background": "#07101D",
+        "surface": "#16305282",
         "text": "#F3F8FF",
         "mutedText": "#AFC1D8",
-        "accent": "#77A8FF",
-        "border": "#38506F",
+        "accent": "#80B6FF",
+        "border": "#FFFFFF42",
         "success": "#42C69B",
         "warning": "#F5C05A",
         "danger": "#FF7C7C"
@@ -85,11 +85,11 @@
     }
   },
   "layout": {
-    "shell": "floating-tabs",
+    "shell": "tabs",
     "feed": "cards",
     "story": "card",
     "comments": "conversation",
-    "navigation": "floating",
+    "navigation": "standard",
     "metadata": "footer"
   }
 }

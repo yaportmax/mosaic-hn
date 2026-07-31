@@ -1,6 +1,6 @@
 # Mosaic HN Theme SDK
 
-Mosaic themes are declarative JSON packages. They can replace the visual shell, feed density, story presentation, comments, navigation, typography, motion, color, spacing, effects, and component variants without executing downloaded code.
+Mosaic themes are declarative JSON packages. They can change feed density, story presentation, comments, typography, motion, color, spacing, effects, and component variants without executing downloaded code. The phone shell remains a fixed four-tab layout so a visual theme cannot break navigation.
 
 ## Authoring
 
@@ -17,11 +17,11 @@ Theme packages cannot add JavaScript, access app storage, issue requests, inject
 
 ## Supported layouts
 
-- Shell: `tabs`, `floating-tabs`, `sidebar`
+- Shell: legacy compatibility value; the phone app always renders bottom tabs
 - Feed: `compact`, `comfortable`, `cards`, `magazine`
 - Story: `line`, `row`, `card`, `editorial`
 - Comments: `threads`, `ledger`, `conversation`
-- Navigation: `standard`, `floating`, `minimal`
+- Navigation: legacy compatibility value; the phone app always shows labeled tabs
 - Metadata: `inline`, `stacked`, `footer`
 
 Accessibility settings can force opaque surfaces, eliminate motion, thicken borders, and select high-contrast variants.
