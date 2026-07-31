@@ -1,34 +1,58 @@
 # Mosaic HN
 
-Mosaic HN is a free, MIT-licensed Hacker News reader for iPhone, iPad, and Android. It is local-first, has no Mosaic account or proprietary backend, and is built as a configurable collection of feature modules rather than one fixed interface. Themes are complete declarative visual wrappers rather than simple color palettes.
+Mosaic HN is a free, open-source Hacker News reader for iPhone, iPad, and Android. It is built with Expo and React Native, stores personal data locally, and reads public stories and discussions from the official Hacker News API.
 
-## What is included
+[Open the interactive iPhone preview](https://mosaic-hn-phone.yaportmax.chatgpt.site/)
 
-- A complete user-facing module system: enable or disable feature modules, place them in Tabs, More, or Hidden, order each destination, choose the home screen, and exchange complete setups as validated JSON.
-- Required recovery guarantees, dependency-aware module toggles, and behavioral gates that stop disabled modules' network, storage, command, gesture, and presentation work.
-- Top, New, Best, Ask, Show, and Jobs feeds from the official Hacker News API.
-- Cached-first loading, SQLite WAL storage, full-text search, and offline discussion access.
-- Local time travel through one observed snapshot per feed per UTC day, retained for up to 365 days.
-- Transparent local feed algorithms with adjustable recency, points, discussion, growth, domain, author, and keyword weights.
-- Local filters and automation that can hide, boost, demote, save, queue, or tag stories.
-- Threaded comments with branch collapse, OP/new/saved highlighting, jump controls, and a minimap.
-- Bookmarks, reading queue, saved comments, notes, tags, history, collections, JSON import/export, and Markdown collection export.
-- Six substantially different built-in themes: Mosaic, Liquid, Classic, Paper, Terminal, and Neon.
-- Four feed layouts, three comment layouts, multiple navigation shells, platform overrides, accessibility variants, and a complete theme studio.
-- A safe community marketplace format based on static JSON registries and SHA-256 verified theme packages.
-- Configurable swipe, double-tap, long-press, registry-driven navigation, command palette, iPad sidebar, and keyboard-friendly controls.
-- No ads, analytics, subscription, cloud account, downloaded executable theme code, or downloaded executable module code.
+## Features
+
+- Top, New, Best, Ask, Show, and Jobs feeds.
+- Full Hacker News discussions with threaded comments and useful thread filters.
+- Search across downloaded stories, comments, authors, and domains.
+- A local Library for saved stories, Read later, history, and reading lists.
+- Custom feed ranking with understandable controls:
+  - Age `0` ignores age and includes all cached stories.
+  - Age `1` uses a balanced freshness model.
+  - Age `2` sorts strictly newest first.
+  - Point and comment influence use real point and comment caps.
+  - Trend, source, author, and keyword boosts use Off, Normal, or Strong.
+- Six built-in themes plus a custom theme editor with a live, expandable preview.
+- Light and dark appearance overrides, high contrast, reduced motion, reduced transparency, and haptic preferences.
+- Configurable gesture shortcuts for opening, saving, sharing, hiding, or adding a story to Read later.
+- Local-first persistence with SQLite on native platforms and IndexedDB on the web preview.
+- JSON import and export for saved local data.
+- No ads, analytics, subscription, Mosaic account, or proprietary backend.
+
+## Navigation
+
+The primary mobile navigation contains four destinations:
+
+- Feed
+- Search
+- Library
+- Settings
+
+Themes, appearance, feed customization, accessibility, Hacker News account links, privacy, and data tools are organized under Settings.
+
+## Hacker News account boundaries
+
+The official Hacker News API is read-only. Reading works without an account. Mosaic HN opens the official Hacker News website for signing in, voting, replying, and submitting.
 
 ## Technology
 
 - Expo SDK 57
-- React Native 0.86 and React 19.2
-- Expo Router native navigation
+- React Native 0.86
+- React 19.2
+- Expo Router
 - Hermes and the React Native New Architecture
-- FlashList 2 for feeds and comments
+- FlashList 2
 - Expo SQLite with FTS5
-- Reanimated and Gesture Handler
-- Native Liquid Glass on supported iOS versions with a deterministic fallback elsewhere
+- React Native Gesture Handler and Reanimated
+- Native Liquid Glass where supported, with a deterministic fallback
+
+## Developer architecture
+
+Mosaic HN retains the original user-facing module system contracts and declarative registry for capability ownership, dependency checks, compatibility, and future extension. The current shipped interface intentionally exposes four stable destinations instead of the earlier module manager.
 
 ## Run locally
 
@@ -41,47 +65,32 @@ npm run verify
 npx expo start
 ```
 
-For a development client:
+For a native development client:
 
 ```bash
 npx expo run:android
-# macOS with Xcode:
+
+# macOS with Xcode
 npx expo run:ios
 ```
 
-Windows can be the primary development machine. Local iOS compilation and the iOS Simulator require macOS, while EAS Build can create signed iOS builds remotely after an Apple account and EAS project are configured.
+Windows can be the primary development machine. Local iOS compilation and the iOS Simulator require macOS. EAS Build can create signed iOS builds after an Apple account and EAS project are configured.
 
 ## Verification
 
 ```bash
-npm test
-npm run typecheck:core
-npm run typecheck:source
-npm run validate:themes
-npm run verify:source
+npm run verify
 ```
 
-With dependencies installed, the release CI additionally runs strict Expo-aware TypeScript checking, Expo Doctor, and a production export.
+The verification suite covers core behavior, ranking, storage, state, themes, module contracts, TypeScript, theme registry integrity, and the checked-in source tree.
 
-## Theme development
-
-Read [`docs/THEME_AUTHORING.md`](docs/THEME_AUTHORING.md) and [`theme-sdk/README.md`](theme-sdk/README.md). A marketplace theme is data, not executable code. It can replace layout choices, typography, color systems, surfaces, effects, spacing, motion, feed rows, comment presentation, and navigation style while the app retains control of network, storage, and trusted actions.
-
-Validate all bundled themes:
+Production bundles can be exported with:
 
 ```bash
-npm run validate:themes
+npx expo export --platform web
+npx expo export --platform ios
+npx expo export --platform android
 ```
-
-## Module development
-
-Read [`docs/MODULES.md`](docs/MODULES.md). The app ships with navigation modules for Feed, Search, Library, Time Travel, Feed Algorithms, Filters & Automation, Themes, Settings, and Modules, plus capability modules for Comments and Discovery.
-
-The runtime registry controls module enablement, dependencies, placement, ordering, home routing, commands, settings, and owned data work. Portable setup files are declarative and safe to inspect. New executable feature modules are added through the open-source codebase and a reviewed app release rather than downloaded at runtime.
-
-## Hacker News API boundaries
-
-The official API is read-only. Mosaic HN opens Hacker News web pages for voting, replying, and account actions. The API does not expose comment scores, so the app never invents them. Historical timelines and time-travel views are based on snapshots captured by the local installation rather than an undeclared archive service.
 
 ## Documentation
 
