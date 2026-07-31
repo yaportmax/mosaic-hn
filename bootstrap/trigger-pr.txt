@@ -1,1 +1,0 @@
-Trigger source expansion through both pull_request_target and main push paths.

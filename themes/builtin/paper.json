@@ -1,0 +1,95 @@
+{
+  "manifest": {
+    "id": "org.mosaichn.paper",
+    "name": "Paper",
+    "author": "Mosaic HN",
+    "version": "1.0.0",
+    "minAppVersion": "1.0.0",
+    "license": "MIT",
+    "description": "Editorial typography, generous rhythm, and magazine-style story presentation."
+  },
+  "tokens": {
+    "light": {
+      "colors": {
+        "background": "#F4EFE5",
+        "surface": "#FFFCF6",
+        "text": "#211D18",
+        "mutedText": "#655E55",
+        "accent": "#8D3D2B",
+        "border": "#D4C9B8",
+        "success": "#2E7552",
+        "warning": "#865A00",
+        "danger": "#A3342C"
+      },
+      "typography": {
+        "fontFamily": "serif",
+        "monoFamily": "monospace",
+        "scale": 1.06,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 5,
+        "density": 1.08
+      },
+      "shape": {
+        "radius": 10,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0.08
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 17
+      }
+    },
+    "dark": {
+      "colors": {
+        "background": "#181511",
+        "surface": "#242019",
+        "text": "#F8F2E8",
+        "mutedText": "#C2B7A8",
+        "accent": "#E88367",
+        "border": "#4D453B",
+        "success": "#63BB8B",
+        "warning": "#E8B55A",
+        "danger": "#FF8177"
+      },
+      "typography": {
+        "fontFamily": "serif",
+        "monoFamily": "monospace",
+        "scale": 1.06,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 5,
+        "density": 1.08
+      },
+      "shape": {
+        "radius": 10,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0.18
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 17
+      }
+    }
+  },
+  "layout": {
+    "shell": "sidebar",
+    "feed": "magazine",
+    "story": "editorial",
+    "comments": "threads",
+    "navigation": "standard",
+    "metadata": "stacked"
+  }
+}

@@ -1,0 +1,33 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npx tsc -p tsconfig.json --noEmit
+      - run: npm run validate:themes
+      - run: npm run verify:source
+      - run: npx expo-doctor
+      - run: npx expo export --platform ios --output-dir dist/ios
+      - run: npx expo export --platform android --output-dir dist/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mosaic-hn-mobile-exports
+          path: |
+            dist/ios
+            dist/android

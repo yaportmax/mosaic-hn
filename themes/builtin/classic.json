@@ -1,0 +1,95 @@
+{
+  "manifest": {
+    "id": "org.mosaichn.classic",
+    "name": "Classic",
+    "author": "Mosaic HN",
+    "version": "1.0.0",
+    "minAppVersion": "1.0.0",
+    "license": "MIT",
+    "description": "Dense, fast, text-first reading inspired by Hacker News."
+  },
+  "tokens": {
+    "light": {
+      "colors": {
+        "background": "#F6F6EF",
+        "surface": "#FFFFFF",
+        "text": "#111111",
+        "mutedText": "#555555",
+        "accent": "#C84F00",
+        "border": "#C9C9BF",
+        "success": "#16794A",
+        "warning": "#7A5200",
+        "danger": "#A51D16"
+      },
+      "typography": {
+        "fontFamily": "system",
+        "monoFamily": "monospace",
+        "scale": 0.92,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 3,
+        "density": 0.72
+      },
+      "shape": {
+        "radius": 2,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 22
+      }
+    },
+    "dark": {
+      "colors": {
+        "background": "#151510",
+        "surface": "#202018",
+        "text": "#F2F2E9",
+        "mutedText": "#B7B7AA",
+        "accent": "#FF7A24",
+        "border": "#46463B",
+        "success": "#49B77C",
+        "warning": "#E8B455",
+        "danger": "#F06B62"
+      },
+      "typography": {
+        "fontFamily": "system",
+        "monoFamily": "monospace",
+        "scale": 0.92,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 3,
+        "density": 0.72
+      },
+      "shape": {
+        "radius": 2,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 22
+      }
+    }
+  },
+  "layout": {
+    "shell": "tabs",
+    "feed": "compact",
+    "story": "line",
+    "comments": "ledger",
+    "navigation": "minimal",
+    "metadata": "inline"
+  }
+}

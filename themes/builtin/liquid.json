@@ -1,0 +1,95 @@
+{
+  "manifest": {
+    "id": "org.mosaichn.liquid",
+    "name": "Liquid",
+    "author": "Mosaic HN",
+    "version": "1.0.0",
+    "minAppVersion": "1.0.0",
+    "license": "MIT",
+    "description": "Translucent, layered navigation with native Liquid Glass on supported iOS versions."
+  },
+  "tokens": {
+    "light": {
+      "colors": {
+        "background": "#EAF3FF",
+        "surface": "#FFFFFFDD",
+        "text": "#0B1220",
+        "mutedText": "#4B5D78",
+        "accent": "#2864DC",
+        "border": "#B8C8E0",
+        "success": "#147D64",
+        "warning": "#956300",
+        "danger": "#C22F2F"
+      },
+      "typography": {
+        "fontFamily": "system",
+        "monoFamily": "monospace",
+        "scale": 1,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 4,
+        "density": 1
+      },
+      "shape": {
+        "radius": 22,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": true,
+        "blur": 28,
+        "shadow": 0.18
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 20
+      }
+    },
+    "dark": {
+      "colors": {
+        "background": "#07111F",
+        "surface": "#15243BDD",
+        "text": "#F3F8FF",
+        "mutedText": "#AFC1D8",
+        "accent": "#77A8FF",
+        "border": "#38506F",
+        "success": "#42C69B",
+        "warning": "#F5C05A",
+        "danger": "#FF7C7C"
+      },
+      "typography": {
+        "fontFamily": "system",
+        "monoFamily": "monospace",
+        "scale": 1,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 4,
+        "density": 1
+      },
+      "shape": {
+        "radius": 22,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": true,
+        "blur": 34,
+        "shadow": 0.34
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 20
+      }
+    }
+  },
+  "layout": {
+    "shell": "floating-tabs",
+    "feed": "cards",
+    "story": "card",
+    "comments": "conversation",
+    "navigation": "floating",
+    "metadata": "footer"
+  }
+}

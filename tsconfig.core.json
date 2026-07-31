@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/core/**/*.ts",
+    "src/db/types.ts",
+    "src/db/memory-adapter.ts",
+    "src/db/reader-repository.ts",
+    "src/modules/runtime.ts",
+    "src/state/external-store.ts",
+    "src/state/preferences.ts",
+    "src/state/modules.ts",
+    "src/design/constants.ts",
+    "src/design/theme-manager.ts",
+    "module-sdk/**/*.ts",
+    "theme-sdk/**/*.ts",
+    "scripts/validate-themes.ts",
+    "types/**/*.d.ts"
+  ],
+  "exclude": [
+    "**/*.test.ts"
+  ]
+}

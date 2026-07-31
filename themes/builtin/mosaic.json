@@ -1,0 +1,95 @@
+{
+  "manifest": {
+    "id": "org.mosaichn.mosaic",
+    "name": "Mosaic",
+    "author": "Mosaic HN",
+    "version": "1.0.0",
+    "minAppVersion": "1.0.0",
+    "license": "MIT",
+    "description": "Balanced, highly legible default with restrained cards."
+  },
+  "tokens": {
+    "light": {
+      "colors": {
+        "background": "#F7F5F2",
+        "surface": "#FFFFFF",
+        "text": "#171717",
+        "mutedText": "#595959",
+        "accent": "#D95618",
+        "border": "#D8D4CE",
+        "success": "#16794A",
+        "warning": "#8A5A00",
+        "danger": "#B42318"
+      },
+      "typography": {
+        "fontFamily": "system",
+        "monoFamily": "monospace",
+        "scale": 1,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 4,
+        "density": 1
+      },
+      "shape": {
+        "radius": 14,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0.1
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 18
+      }
+    },
+    "dark": {
+      "colors": {
+        "background": "#0E0E10",
+        "surface": "#19191D",
+        "text": "#F7F7F7",
+        "mutedText": "#B3B3BA",
+        "accent": "#FF8A4C",
+        "border": "#38383F",
+        "success": "#46B97B",
+        "warning": "#F5B942",
+        "danger": "#FF6B61"
+      },
+      "typography": {
+        "fontFamily": "system",
+        "monoFamily": "monospace",
+        "scale": 1,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 4,
+        "density": 1
+      },
+      "shape": {
+        "radius": 14,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0.25
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 18
+      }
+    }
+  },
+  "layout": {
+    "shell": "tabs",
+    "feed": "comfortable",
+    "story": "row",
+    "comments": "threads",
+    "navigation": "standard",
+    "metadata": "inline"
+  }
+}

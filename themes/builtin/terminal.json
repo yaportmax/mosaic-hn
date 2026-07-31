@@ -1,0 +1,95 @@
+{
+  "manifest": {
+    "id": "org.mosaichn.terminal",
+    "name": "Terminal",
+    "author": "Mosaic HN",
+    "version": "1.0.0",
+    "minAppVersion": "1.0.0",
+    "license": "MIT",
+    "description": "Monospaced, command-oriented layout with minimal decoration."
+  },
+  "tokens": {
+    "light": {
+      "colors": {
+        "background": "#06100A",
+        "surface": "#0B1A10",
+        "text": "#D2FFD8",
+        "mutedText": "#7FB78A",
+        "accent": "#33E36B",
+        "border": "#23542E",
+        "success": "#4ADE80",
+        "warning": "#FACC15",
+        "danger": "#FB7185"
+      },
+      "typography": {
+        "fontFamily": "monospace",
+        "monoFamily": "monospace",
+        "scale": 0.96,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 4,
+        "density": 0.82
+      },
+      "shape": {
+        "radius": 0,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 24
+      }
+    },
+    "dark": {
+      "colors": {
+        "background": "#020704",
+        "surface": "#071009",
+        "text": "#D8FFE0",
+        "mutedText": "#83BC8E",
+        "accent": "#39F073",
+        "border": "#1C4827",
+        "success": "#4ADE80",
+        "warning": "#FACC15",
+        "danger": "#FB7185"
+      },
+      "typography": {
+        "fontFamily": "monospace",
+        "monoFamily": "monospace",
+        "scale": 0.96,
+        "titleWeight": "700",
+        "bodyWeight": "400"
+      },
+      "spacing": {
+        "unit": 4,
+        "density": 0.82
+      },
+      "shape": {
+        "radius": 0,
+        "borderWidth": 1
+      },
+      "effects": {
+        "glass": false,
+        "blur": 0,
+        "shadow": 0
+      },
+      "motion": {
+        "durationScale": 1,
+        "springDamping": 24
+      }
+    }
+  },
+  "layout": {
+    "shell": "tabs",
+    "feed": "compact",
+    "story": "line",
+    "comments": "ledger",
+    "navigation": "minimal",
+    "metadata": "stacked"
+  }
+}

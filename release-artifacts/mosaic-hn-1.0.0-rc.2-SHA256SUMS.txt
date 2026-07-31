@@ -1,0 +1,4 @@
+886c5cdc778dce6592285f8bfd85805d4c2a47ff78494de4a67d188e117d6681  mosaic-hn-source-1.0.0-rc.2.zip
+0d524e824696d1a94a93cf092160b12ad947514f3c3198a320b888f889b905f6  mosaic-hn-1.0.0-rc.2.bundle
+3fc0040cb7f69a9bb531b120affe14990980376f093e3317a10acee44990a5bc  mosaic-hn-1.0.0-rc.2-verification-report.md
+e7a685f87d09f0af48fabe9c81c56d2a3a40336e87bb4c2d3517fe7ff693bcc6  mosaic-hn-1.0.0-rc.2-verify.log

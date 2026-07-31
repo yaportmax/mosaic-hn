@@ -1,0 +1,16 @@
+appId: org.mosaichn.reader
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Mosaic HN"
+- assertVisible: "Top"
+- tapOn: "New"
+- swipe:
+    direction: UP
+    duration: 900
+- tapOn:
+    text: ".*"
+    index: 0
+    optional: true
+- back
+- assertVisible: "Mosaic HN"
