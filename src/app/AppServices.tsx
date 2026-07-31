@@ -7,6 +7,7 @@ import { ThemeManager } from '../design/theme-manager.ts';
 import { PreferencesController, type AppPreferences } from '../state/preferences.ts';
 import { ModuleConfigurationController } from '../state/modules.ts';
 import type { ModuleConfigurationV1 } from '../../module-sdk/types.ts';
+import { DEFAULT_MODULE_CONFIGURATION } from '../../module-sdk/configuration.ts';
 
 export interface AppServices {
   database: AppDatabase;
@@ -38,7 +39,8 @@ export function AppServicesProvider({ children }: { children: ReactNode }) {
         await preferences.load();
         if (!active) { await closeDatabase(); return; }
         const modules = new ModuleConfigurationController(database.adapter);
-        await modules.load();
+        const loadedModules = await modules.load();
+        if (JSON.stringify(loadedModules) !== JSON.stringify(DEFAULT_MODULE_CONFIGURATION)) await modules.reset();
         if (!active) { await closeDatabase(); return; }
         const themes = new ThemeManager(database.adapter, BUILTIN_THEMES, APP_VERSION);
         setServices({ database, preferences, themes, modules });

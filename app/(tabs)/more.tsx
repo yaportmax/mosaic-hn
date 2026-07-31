@@ -1,2 +1,5 @@
-import { MoreModulesScreen } from '../../src/components/MoreModulesScreen.tsx';
-export default function MoreRoute() { return <MoreModulesScreen />; }
+import { Redirect } from 'expo-router';
+
+export default function MoreRoute() {
+  return <Redirect href="/settings" />;
+}

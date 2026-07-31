@@ -1,5 +1,5 @@
 export type ColorSchemeName = 'light' | 'dark';
-export type FontFamilyToken = 'system' | 'rounded' | 'serif' | 'monospace';
+export type FontFamilyToken = 'system' | 'rounded' | 'humanist' | 'serif' | 'condensed' | 'monospace';
 export type FontWeightToken = '400' | '500' | '600' | '700' | '800';
 export type ShellLayout = 'tabs' | 'floating-tabs' | 'sidebar';
 export type FeedLayout = 'compact' | 'comfortable' | 'cards' | 'magazine';

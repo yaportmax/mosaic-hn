@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
-import Slider from '@react-native-community/slider';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
-import type { ColorSchemeName, CommentLayout, FeedLayout, MetadataLayout, NavigationLayout, ShellLayout, StoryLayout, ThemePackage, ThemeTokens } from '../../../theme-sdk/types.ts';
+import type { ColorSchemeName, CommentLayout, FeedLayout, FontFamilyToken, MetadataLayout, NavigationLayout, StoryLayout, ThemePackage, ThemeTokens } from '../../../theme-sdk/types.ts';
 import { validateThemePackage } from '../../../theme-sdk/validate.ts';
 import { getBuiltinTheme } from '../../design/builtins.ts';
 import { APP_VERSION } from '../../design/constants.ts';
@@ -18,6 +17,26 @@ import { ThemePreview } from '../../components/ThemePreview.tsx';
 import { ThemedText } from '../../components/ThemedText.tsx';
 
 const colorKeys = ['background', 'surface', 'text', 'mutedText', 'accent', 'border', 'success', 'warning', 'danger'] as const;
+type ColorKey = typeof colorKeys[number];
+
+const colorLabels: Record<ColorKey, { label: string; detail: string }> = {
+  background: { label: 'App background', detail: 'The area behind every screen.' },
+  surface: { label: 'Cards and panels', detail: 'Story cards, controls, and sheets.' },
+  text: { label: 'Main text', detail: 'Headlines and primary labels.' },
+  mutedText: { label: 'Secondary text', detail: 'Metadata, timestamps, and hints.' },
+  accent: { label: 'Accent', detail: 'Selected tabs, primary buttons, and highlights.' },
+  border: { label: 'Dividers', detail: 'Card outlines and separators.' },
+  success: { label: 'Success', detail: 'Completed and positive states.' },
+  warning: { label: 'Warning', detail: 'Attention states and read-later indicators.' },
+  danger: { label: 'Error', detail: 'Destructive actions and failures.' }
+};
+
+const COLOR_PALETTE = [
+  '#FFFFFF', '#F7F7F7', '#E5E7EB', '#B3B3BA', '#6B7280', '#38383F', '#19191D', '#0E0E10',
+  '#FF8A4C', '#FF6B61', '#E64980', '#A855F7', '#6C7CFF', '#3B82F6', '#0EA5E9', '#14B8A6',
+  '#46B97B', '#84CC16', '#F5B942', '#F97316', '#B45309', '#7C3AED', '#1D4ED8', '#0F766E'
+] as const;
+
 const clone = <T,>(value: T): T => structuredClone(value);
 
 export function ThemeStudioScreen({ id }: { id?: string }) {
@@ -28,15 +47,18 @@ export function ThemeStudioScreen({ id }: { id?: string }) {
   const [source, setSource] = useState<'builtin' | 'installed'>('builtin');
   const [scheme, setScheme] = useState<ColorSchemeName>(runtime.theme.sourceScheme);
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [picking, setPicking] = useState<ColorKey | null>(null);
 
   useEffect(() => {
-    let active = true;
+    let mounted = true;
     void themes.list().then((entries) => {
       const entry = entries.find((item) => item.theme.manifest.id === (id ?? preferences.activeThemeId));
-      if (!active || !entry) return;
-      setDraft(clone(entry.theme)); setSource(entry.source);
+      if (!mounted || !entry) return;
+      setDraft(clone(entry.theme));
+      setSource(entry.source);
     });
-    return () => { active = false; };
+    return () => { mounted = false; };
   }, [themes, id, preferences.activeThemeId]);
 
   const issues = useMemo(() => validateThemePackage(draft, { appVersion: APP_VERSION }), [draft]);
@@ -51,7 +73,10 @@ export function ThemeStudioScreen({ id }: { id?: string }) {
   const updateLayout = <K extends keyof ThemePackage['layout']>(key: K, value: ThemePackage['layout'][K]) => setDraft((existing) => ({ ...existing, layout: { ...existing.layout, [key]: value } }));
 
   const save = async () => {
-    if (issues.length) { Alert.alert('Theme is not valid', issues.slice(0, 4).map((issue) => `${issue.path}: ${issue.message}`).join('\n')); return; }
+    if (issues.length) {
+      Alert.alert('A few colors need attention', issues.slice(0, 4).map((issue) => issue.message).join('\n'));
+      return;
+    }
     setSaving(true);
     try {
       const next = clone(draft);
@@ -59,37 +84,136 @@ export function ThemeStudioScreen({ id }: { id?: string }) {
         const stamp = Date.now().toString(36);
         next.manifest.id = `local.mosaichn.${stamp}`;
         next.manifest.name = `${next.manifest.name} Custom`;
-        next.manifest.author = 'Local user';
+        next.manifest.author = 'You';
         next.manifest.version = '1.0.0';
       }
       const installed = await themes.install(next);
       await runtime.selectTheme(installed.manifest.id);
       router.replace({ pathname: '/theme/[id]', params: { id: installed.manifest.id } });
-    } catch (reason) { Alert.alert('Save failed', reason instanceof Error ? reason.message : 'The theme could not be saved'); }
-    finally { setSaving(false); }
+    } catch (reason) {
+      Alert.alert('Could not save theme', reason instanceof Error ? reason.message : 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
+  const chooseNavigation = (navigation: NavigationLayout) => setDraft((existing) => ({
+    ...existing,
+    layout: {
+      ...existing.layout,
+      navigation,
+      shell: navigation === 'floating' ? 'floating-tabs' : 'tabs'
+    }
+  }));
+
   return <Screen edges={['top']}>
-    <DetailHeader title="Theme Studio" subtitle={source === 'builtin' ? 'Saving creates an editable community-theme copy' : `Editing ${draft.manifest.name}`} />
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <ThemePreview themePackage={draft} scheme={scheme} />
-      <View style={styles.scheme}><Chip label="Light" selected={scheme === 'light'} onPress={() => setScheme('light')} /><Chip label="Dark" selected={scheme === 'dark'} onPress={() => setScheme('dark')} /></View>
-      <Section title="Identity"><Surface style={styles.form}><Field label="Name" value={draft.manifest.name} onChange={(value) => setDraft((current) => ({ ...current, manifest: { ...current.manifest, name: value } }))} /><Field label="Author" value={draft.manifest.author} onChange={(value) => setDraft((current) => ({ ...current, manifest: { ...current.manifest, author: value } }))} /><Field label="Description" value={draft.manifest.description ?? ''} onChange={(value) => setDraft((current) => ({ ...current, manifest: { ...current.manifest, description: value } }))} /></Surface></Section>
-      <Section title={`${scheme === 'dark' ? 'Dark' : 'Light'} colors`} caption="Hex colors are validated for readability before installation."><Surface style={styles.form}>{colorKeys.map((key) => <Field key={key} label={key} value={tokens.colors[key]} swatch onChange={(value) => updateTokens((target) => { target.colors[key] = value; })} />)}</Surface></Section>
-      <Section title="Layouts"><Choice label="App shell" values={['tabs', 'floating-tabs', 'sidebar'] as ShellLayout[]} selected={draft.layout.shell} onSelect={(value) => updateLayout('shell', value)} /><Choice label="Feed" values={['compact', 'comfortable', 'cards', 'magazine'] as FeedLayout[]} selected={draft.layout.feed} onSelect={(value) => updateLayout('feed', value)} /><Choice label="Story" values={['line', 'row', 'card', 'editorial'] as StoryLayout[]} selected={draft.layout.story} onSelect={(value) => updateLayout('story', value)} /><Choice label="Comments" values={['threads', 'ledger', 'conversation'] as CommentLayout[]} selected={draft.layout.comments} onSelect={(value) => updateLayout('comments', value)} /><Choice label="Navigation" values={['standard', 'floating', 'minimal'] as NavigationLayout[]} selected={draft.layout.navigation} onSelect={(value) => updateLayout('navigation', value)} /><Choice label="Metadata" values={['inline', 'stacked', 'footer'] as MetadataLayout[]} selected={draft.layout.metadata} onSelect={(value) => updateLayout('metadata', value)} /></Section>
-      <Section title="Typography and density"><SliderRow label="Type scale" value={tokens.typography.scale} minimum={0.75} maximum={1.75} step={0.05} onChange={(value) => updateTokens((target) => { target.typography.scale = value; })} /><Choice label="Font" values={['system', 'rounded', 'serif', 'monospace'] as const} selected={tokens.typography.fontFamily} onSelect={(value) => updateTokens((target) => { target.typography.fontFamily = value; })} /><SliderRow label="Spacing unit" value={tokens.spacing.unit} minimum={2} maximum={12} step={1} onChange={(value) => updateTokens((target) => { target.spacing.unit = value; })} /><SliderRow label="Density" value={tokens.spacing.density} minimum={0.65} maximum={1.5} step={0.05} onChange={(value) => updateTokens((target) => { target.spacing.density = value; })} /><SliderRow label="Corner radius" value={tokens.shape.radius} minimum={0} maximum={40} step={1} onChange={(value) => updateTokens((target) => { target.shape.radius = value; })} /></Section>
-      <Section title="Effects and motion"><ToggleRow label="Native glass when available" value={tokens.effects.glass} onChange={(value) => updateTokens((target) => { target.effects.glass = value; })} /><SliderRow label="Blur" value={tokens.effects.blur} minimum={0} maximum={100} step={1} onChange={(value) => updateTokens((target) => { target.effects.blur = value; })} /><SliderRow label="Shadow" value={tokens.effects.shadow} minimum={0} maximum={1} step={0.05} onChange={(value) => updateTokens((target) => { target.effects.shadow = value; })} /><SliderRow label="Motion speed" value={tokens.motion.durationScale} minimum={0} maximum={2} step={0.1} onChange={(value) => updateTokens((target) => { target.motion.durationScale = value; })} /><SliderRow label="Spring damping" value={tokens.motion.springDamping} minimum={1} maximum={40} step={1} onChange={(value) => updateTokens((target) => { target.motion.springDamping = value; })} /></Section>
-      {issues.length ? <Surface style={[styles.issues, { borderColor: runtime.theme.tokens.colors.danger }]}><ThemedText variant="headline" style={{ color: runtime.theme.tokens.colors.danger }}>{issues.length} validation issue{issues.length === 1 ? '' : 's'}</ThemedText>{issues.slice(0, 8).map((issue) => <ThemedText key={`${issue.path}-${issue.code}`} variant="meta">{issue.path}: {issue.message}</ThemedText>)}</Surface> : <Surface style={styles.valid}><ThemedText variant="headline" style={{ color: runtime.theme.tokens.colors.success }}>Theme passes validation</ThemedText><ThemedText variant="meta" muted>It can be installed, exported, and submitted to a static marketplace.</ThemedText></Surface>}
-      <Button label={source === 'builtin' ? 'Install custom copy' : 'Save theme'} icon="checkmark-circle-outline" loading={saving} onPress={() => void save()} />
+    <DetailHeader title="Customize theme" subtitle="Every choice updates the preview" />
+    <ScrollView stickyHeaderIndices={[0]} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <View style={[styles.previewDock, { backgroundColor: runtime.theme.tokens.colors.background, borderBottomColor: runtime.theme.tokens.colors.border }]}>
+        <View style={styles.previewTop}>
+          <View style={styles.scheme}><Chip compact label="Light" selected={scheme === 'light'} onPress={() => setScheme('light')} /><Chip compact label="Dark" selected={scheme === 'dark'} onPress={() => setScheme('dark')} /></View>
+          <Button label="Expand preview" icon="expand-outline" variant="ghost" onPress={() => setExpanded(true)} />
+        </View>
+        <ThemePreview compact themePackage={draft} scheme={scheme} />
+      </View>
+
+      <Section title="Theme name">
+        <Surface style={styles.form}>
+          <TextInput value={draft.manifest.name} onChangeText={(name) => setDraft((current) => ({ ...current, manifest: { ...current.manifest, name } }))} placeholder="Theme name" placeholderTextColor={runtime.theme.tokens.colors.mutedText} style={[styles.input, { color: runtime.theme.tokens.colors.text, borderColor: runtime.theme.tokens.colors.border }]} />
+          <TextInput value={draft.manifest.description ?? ''} onChangeText={(description) => setDraft((current) => ({ ...current, manifest: { ...current.manifest, description } }))} placeholder="Short description" placeholderTextColor={runtime.theme.tokens.colors.mutedText} style={[styles.input, { color: runtime.theme.tokens.colors.text, borderColor: runtime.theme.tokens.colors.border }]} />
+        </Surface>
+      </Section>
+
+      <Section title={`${scheme === 'dark' ? 'Dark' : 'Light'} colors`} caption="Tap a color square to pick a color, or enter a hex value. The preview stays visible while you work.">
+        <Surface style={styles.form}>{colorKeys.map((key) => <ColorField key={key} colorKey={key} value={tokens.colors[key]} onPick={() => setPicking(key)} onChange={(value) => updateTokens((target) => { target.colors[key] = value; })} />)}</Surface>
+      </Section>
+
+      <Section title="Text" caption="All six styles use fonts already available on the device, so themes work offline.">
+        <NamedChoice<FontFamilyToken> label="Font style" values={['system', 'rounded', 'humanist', 'serif', 'condensed', 'monospace']} labels={{ system: 'System', rounded: 'Rounded', humanist: 'Humanist', serif: 'Serif', condensed: 'Condensed', monospace: 'Mono' }} selected={tokens.typography.fontFamily} onSelect={(fontFamily) => updateTokens((target) => { target.typography.fontFamily = fontFamily; })} />
+        <NumberChoice label="Text size" values={[0.9, 1, 1.15, 1.3]} labels={['Small', 'Standard', 'Large', 'Extra large']} selected={tokens.typography.scale} onSelect={(scale) => updateTokens((target) => { target.typography.scale = scale; })} />
+      </Section>
+
+      <Section title="Shape and depth" caption="Corner shape changes cards, buttons, tabs, and sheets. Shadow changes raised surfaces.">
+        <NumberChoice label="Corners" values={[4, 12, 20, 30]} labels={['Square', 'Soft', 'Rounded', 'Pill']} selected={tokens.shape.radius} onSelect={(radius) => updateTokens((target) => { target.shape.radius = radius; })} />
+        <NumberChoice label="Shadow" values={[0, 0.18, 0.35]} labels={['Off', 'Soft', 'Strong']} selected={tokens.effects.shadow} onSelect={(shadow) => updateTokens((target) => { target.effects.shadow = shadow; })} />
+      </Section>
+
+      <Section title="Screen layouts" caption="These choices change the real feed, story rows, discussion, and bottom navigation.">
+        <NamedChoice<FeedLayout> label="Feed" values={['compact', 'comfortable', 'cards', 'magazine']} labels={{ compact: 'Compact', comfortable: 'Comfortable', cards: 'Cards', magazine: 'Magazine' }} selected={draft.layout.feed} onSelect={(value) => updateLayout('feed', value)} />
+        <NamedChoice<StoryLayout> label="Story rows" values={['line', 'row', 'card', 'editorial']} labels={{ line: 'Minimal', row: 'Balanced', card: 'Cards', editorial: 'Headlines' }} selected={draft.layout.story} onSelect={(value) => updateLayout('story', value)} />
+        <NamedChoice<CommentLayout> label="Discussion" values={['threads', 'ledger', 'conversation']} labels={{ threads: 'Threaded', ledger: 'Compact', conversation: 'Conversation' }} selected={draft.layout.comments} onSelect={(value) => updateLayout('comments', value)} />
+        <NamedChoice<NavigationLayout> label="Bottom navigation" values={['standard', 'floating', 'minimal']} labels={{ standard: 'Standard', floating: 'Floating', minimal: 'Icons only' }} selected={draft.layout.navigation} onSelect={chooseNavigation} />
+        <NamedChoice<MetadataLayout> label="Story details" values={['inline', 'stacked', 'footer']} labels={{ inline: 'One line', stacked: 'Two lines', footer: 'Below title' }} selected={draft.layout.metadata} onSelect={(value) => updateLayout('metadata', value)} />
+      </Section>
+
+      {issues.length ? <Surface style={[styles.issues, { borderColor: runtime.theme.tokens.colors.danger }]}><ThemedText variant="headline" style={{ color: runtime.theme.tokens.colors.danger }}>Fix before saving</ThemedText>{issues.slice(0, 6).map((issue, index) => <ThemedText key={`${issue.code}-${index}`} variant="meta">{issue.message}</ThemedText>)}</Surface> : null}
+      <Button label="Save and apply" icon="checkmark-circle-outline" loading={saving} onPress={() => void save()} style={styles.pageButton} />
+      <Button label="Cancel" variant="ghost" onPress={() => router.back()} style={styles.pageButton} />
     </ScrollView>
+
+    <Modal visible={expanded} transparent animationType="fade" onRequestClose={() => setExpanded(false)}>
+      <View style={styles.modalBackdrop}>
+        <Surface elevated style={styles.previewModal}>
+          <View style={styles.modalHeader}><ThemedText variant="title">Theme preview</ThemedText><Button label="Done" variant="ghost" onPress={() => setExpanded(false)} /></View>
+          <ThemePreview themePackage={draft} scheme={scheme} />
+        </Surface>
+      </View>
+    </Modal>
+
+    <Modal visible={Boolean(picking)} transparent animationType="fade" onRequestClose={() => setPicking(null)}>
+      <View style={styles.modalBackdrop}>
+        <Surface elevated style={styles.colorModal}>
+          <View style={styles.modalHeader}><ThemedText variant="title">{picking ? colorLabels[picking].label : 'Pick color'}</ThemedText><Button label="Done" variant="ghost" onPress={() => setPicking(null)} /></View>
+          <View style={styles.palette}>{COLOR_PALETTE.map((color) => <Pressable key={color} accessibilityRole="button" accessibilityLabel={`Use color ${color}`} onPress={() => {
+            if (picking) updateTokens((target) => { target.colors[picking] = color; });
+            setPicking(null);
+          }} style={({ pressed }) => [styles.paletteColor, { backgroundColor: color, borderColor: runtime.theme.tokens.colors.border, opacity: pressed ? 0.65 : 1 }]} />)}</View>
+          <ThemedText variant="meta" muted>For an exact color, close this picker and type its hex value in the field.</ThemedText>
+        </Surface>
+      </View>
+    </Modal>
   </Screen>;
 }
 
-function Field({ label, value, onChange, swatch = false }: { label: string; value: string; onChange(value: string): void; swatch?: boolean }) {
+function ColorField({ colorKey, value, onPick, onChange }: { colorKey: ColorKey; value: string; onPick(): void; onChange(value: string): void }) {
   const runtime = useThemeRuntime();
-  return <View style={styles.field}><ThemedText variant="meta" muted style={{ width: 90 }}>{label}</ThemedText>{swatch ? <View style={[styles.swatch, { backgroundColor: /^#[0-9a-f]{6,8}$/i.test(value) ? value : 'transparent', borderColor: runtime.theme.tokens.colors.border }]} /> : null}<TextInput value={value} onChangeText={onChange} autoCapitalize="none" autoCorrect={false} style={[styles.fieldInput, { color: runtime.theme.tokens.colors.text, borderColor: runtime.theme.tokens.colors.border }]} /></View>;
+  const copy = colorLabels[colorKey];
+  const valid = /^#[0-9a-f]{6,8}$/i.test(value);
+  return <View style={styles.colorField}>
+    <View style={styles.colorCopy}><ThemedText variant="headline">{copy.label}</ThemedText><ThemedText variant="caption" muted>{copy.detail}</ThemedText></View>
+    <Pressable accessibilityRole="button" accessibilityLabel={`Pick ${copy.label} color`} onPress={onPick} style={({ pressed }) => [styles.swatch, { backgroundColor: valid ? value : 'transparent', borderColor: runtime.theme.tokens.colors.border, opacity: pressed ? 0.65 : 1 }]} />
+    <TextInput value={value} onChangeText={onChange} autoCapitalize="characters" autoCorrect={false} style={[styles.hexInput, { color: runtime.theme.tokens.colors.text, borderColor: valid ? runtime.theme.tokens.colors.border : runtime.theme.tokens.colors.danger }]} />
+  </View>;
 }
-function Choice<T extends string>({ label, values, selected, onSelect }: { label: string; values: readonly T[]; selected: T; onSelect(value: T): void }) { return <View style={styles.choice}><ThemedText variant="meta" muted>{label}</ThemedText><View style={styles.choiceValues}>{values.map((value) => <Chip key={value} compact label={value} selected={selected === value} onPress={() => onSelect(value)} />)}</View></View>; }
-function SliderRow({ label, value, minimum, maximum, step, onChange }: { label: string; value: number; minimum: number; maximum: number; step: number; onChange(value: number): void }) { const runtime = useThemeRuntime(); return <Surface style={styles.sliderRow}><View style={styles.sliderLabel}><ThemedText>{label}</ThemedText><ThemedText variant="meta" accent>{Number.isInteger(step) ? Math.round(value) : value.toFixed(2)}</ThemedText></View><Slider value={value} minimumValue={minimum} maximumValue={maximum} step={step} onValueChange={onChange} minimumTrackTintColor={runtime.theme.tokens.colors.accent} maximumTrackTintColor={runtime.theme.tokens.colors.border} thumbTintColor={runtime.theme.tokens.colors.accent} /></Surface>; }
-function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange(value: boolean): void }) { const runtime = useThemeRuntime(); return <Surface style={styles.toggle}><ThemedText>{label}</ThemedText><Switch value={value} onValueChange={onChange} trackColor={{ true: runtime.theme.tokens.colors.accent }} /></Surface>; }
-const styles = StyleSheet.create({ content: { padding: 14, paddingBottom: 90, gap: 22 }, scheme: { flexDirection: 'row', gap: 8 }, form: { paddingHorizontal: 12 }, field: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(127,127,127,0.25)' }, fieldInput: { flex: 1, minHeight: 38, borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, fontSize: 14 }, swatch: { width: 27, height: 27, borderRadius: 7, borderWidth: 1 }, choice: { gap: 7 }, choiceValues: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 }, sliderRow: { paddingHorizontal: 12, paddingVertical: 9 }, sliderLabel: { flexDirection: 'row', justifyContent: 'space-between' }, toggle: { minHeight: 54, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }, issues: { padding: 14, gap: 5, borderWidth: 2 }, valid: { padding: 14, gap: 4 } });
+
+function NamedChoice<T extends string>({ label, values, labels, selected, onSelect }: { label: string; values: readonly T[]; labels: Record<T, string>; selected: T; onSelect(value: T): void }) {
+  return <Surface style={styles.choice}><ThemedText variant="meta" muted>{label}</ThemedText><View style={styles.choiceValues}>{values.map((value) => <Chip key={value} compact label={labels[value]} selected={selected === value} onPress={() => onSelect(value)} />)}</View></Surface>;
+}
+
+function NumberChoice({ label, values, labels, selected, onSelect }: { label: string; values: readonly number[]; labels: readonly string[]; selected: number; onSelect(value: number): void }) {
+  const closest = values.reduce((best, value) => Math.abs(value - selected) < Math.abs(best - selected) ? value : best, values[0] ?? selected);
+  return <Surface style={styles.choice}><ThemedText variant="meta" muted>{label}</ThemedText><View style={styles.choiceValues}>{values.map((value, index) => <Chip key={value} compact label={labels[index] ?? String(value)} selected={closest === value} onPress={() => onSelect(value)} />)}</View></Surface>;
+}
+
+const styles = StyleSheet.create({
+  content: { paddingBottom: 90, gap: 22 },
+  previewDock: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, gap: 8, zIndex: 10 },
+  previewTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  scheme: { flexDirection: 'row', gap: 7 },
+  form: { marginHorizontal: 14, padding: 12, gap: 10 },
+  input: { minHeight: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
+  colorField: { minHeight: 68, flexDirection: 'row', alignItems: 'center', gap: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(127,127,127,0.25)' },
+  colorCopy: { flex: 1, minWidth: 120, gap: 2 },
+  swatch: { width: 38, height: 38, borderRadius: 10, borderWidth: 1 },
+  hexInput: { width: 92, minHeight: 38, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, fontSize: 13 },
+  choice: { marginHorizontal: 14, padding: 12, gap: 8 },
+  choiceValues: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  issues: { marginHorizontal: 14, padding: 14, gap: 5, borderWidth: 2 },
+  pageButton: { marginHorizontal: 14 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 22 },
+  previewModal: { padding: 16, gap: 14, maxWidth: 520, width: '100%', alignSelf: 'center' },
+  colorModal: { padding: 16, gap: 14, maxWidth: 430, width: '100%', alignSelf: 'center' },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  palette: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  paletteColor: { width: 42, height: 42, borderRadius: 12, borderWidth: 1 }
+});

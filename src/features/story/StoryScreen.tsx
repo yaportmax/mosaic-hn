@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import type { CommentJumpKind } from '../../core/comments.ts';
 import type { CollectionRecord, CommentRow } from '../../core/models.ts';
@@ -14,7 +15,6 @@ import { Button, IconButton } from '../../components/Button.tsx';
 import { Chip } from '../../components/Chip.tsx';
 import { CommentRowView } from '../../components/CommentRow.tsx';
 import { ThreadMinimap } from '../../components/ThreadMinimap.tsx';
-import { TimelineChart } from '../../components/TimelineChart.tsx';
 import { EmptyState, ErrorState, LoadingState } from '../../components/States.tsx';
 import { Section } from '../../components/Section.tsx';
 import { Surface } from '../../components/Surface.tsx';
@@ -25,21 +25,14 @@ export function StoryScreen({ id }: { id: number }) {
   const commentsEnabled = useModuleEnabled('comments');
   const discoveryEnabled = useModuleEnabled('discovery');
   const libraryEnabled = useModuleEnabled('library');
-  const archiveEnabled = useModuleEnabled('archive');
   const data = useStoryData(id);
   const preferences = usePreferences();
   const { database } = useAppServices();
   const { theme } = useThemeRuntime();
   const listRef = useRef<FlashListRef<CommentRow>>(null);
   const jumpCursor = useRef<Record<CommentJumpKind, number>>({ op: -1, new: -1, saved: -1, large: -1 });
-  const [note, setNote] = useState('');
-  const [tags, setTags] = useState('');
-  const [notesOpen, setNotesOpen] = useState(false);
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
   const [collections, setCollections] = useState<CollectionRecord[]>([]);
-
-  useEffect(() => { setNote(data.note); setTags(data.tags.join(', ')); }, [data.note, data.tags]);
-  useEffect(() => { if (!libraryEnabled) setNotesOpen(false); }, [libraryEnabled]);
 
   const story = data.story;
   if (data.loading && !story) return <Screen edges={['top']}><DetailHeader title="Story" /><LoadingState label={commentsEnabled ? 'Loading story and discussion…' : 'Loading story…'} /></Screen>;
@@ -57,7 +50,13 @@ export function StoryScreen({ id }: { id: number }) {
   const addToCollection = async () => {
     if (!libraryEnabled) return;
     const available = await database.repository.listCollections();
-    if (!available.length) { Alert.alert('No collections', 'Create a collection from the Library module first.'); return; }
+    if (!available.length) {
+      const now = Math.floor(Date.now() / 1000);
+      const list: CollectionRecord = { id: Crypto.randomUUID(), name: 'Reading list', createdAt: now, updatedAt: now, itemIds: [story.id] };
+      await database.repository.saveCollection(list);
+      Alert.alert('Added to Reading list', 'You can rename or organize the list from Library.');
+      return;
+    }
     setCollections(available);
     setCollectionPickerOpen(true);
   };
@@ -76,7 +75,6 @@ export function StoryScreen({ id }: { id: number }) {
     : null;
 
   const storyLayout = theme.layout.story;
-  const relevantRelated = data.related.filter((item) => item.similarity >= 0.18).slice(0, 3);
   const summaryContent = <View style={[
     styles.summary,
     storyLayout === 'line' && styles.summaryLine,
@@ -94,12 +92,13 @@ export function StoryScreen({ id }: { id: number }) {
     <View style={styles.actionStack}>
       <View style={styles.primaryActions}>
         <Button label={story.url ? 'Read article' : 'Open on HN'} icon="open-outline" onPress={() => void openStory(story, preferences)} style={styles.readButton} />
-        {libraryEnabled ? <><IconButton icon={data.bookmarked ? 'bookmark' : 'bookmark-outline'} label={data.bookmarked ? 'Remove bookmark' : 'Save story'} onPress={() => void data.toggleBookmark()} /><IconButton icon={data.queued ? 'time' : 'time-outline'} label={data.queued ? 'Remove from queue' : 'Add to queue'} onPress={() => void data.toggleQueue()} /></> : null}
+        {libraryEnabled ? <Button label={data.bookmarked ? 'Saved' : 'Save'} icon={data.bookmarked ? 'bookmark' : 'bookmark-outline'} variant={data.bookmarked ? 'secondary' : 'ghost'} onPress={() => void data.toggleBookmark()} style={styles.saveButton} /> : null}
       </View>
       <View style={styles.secondaryActions}>
-        {libraryEnabled ? <Button label="Collect" icon="folder-outline" variant="ghost" onPress={() => void addToCollection()} style={styles.secondaryAction} /> : null}
+        {libraryEnabled ? <Button label={data.queued ? 'Queued' : 'Read later'} icon={data.queued ? 'time' : 'time-outline'} variant={data.queued ? 'secondary' : 'ghost'} onPress={() => void data.toggleQueue()} style={styles.secondaryAction} /> : null}
+        {libraryEnabled ? <Button label="Add to list" icon="folder-outline" variant="ghost" onPress={() => void addToCollection()} style={styles.secondaryAction} /> : null}
         <Button label="Share" icon="share-outline" variant="ghost" onPress={() => void shareStory(story)} style={styles.secondaryAction} />
-        <Button label="HN thread" icon="logo-hackernews" variant="ghost" onPress={() => void openUrl(hnItemUrl(story.id), preferences.openLinks)} style={styles.secondaryAction} />
+        {story.url ? <Button label="Open on HN" icon="logo-hackernews" variant="ghost" onPress={() => void openUrl(hnItemUrl(story.id), preferences.openLinks)} style={styles.secondaryAction} /> : null}
       </View>
     </View>
   </View>;
@@ -110,7 +109,7 @@ export function StoryScreen({ id }: { id: number }) {
   const discussionHeader = commentsEnabled ? <>
     <View style={styles.commentsTitle}>
       <ThemedText variant="title">Discussion</ThemedText>
-      {data.commentsLoading ? <ThemedText variant="meta" accent>Loading branches…</ThemedText> : <ThemedText variant="meta" muted>{data.rows.length} cached comments</ThemedText>}
+      {data.commentsLoading ? <ThemedText variant="meta" accent>Loading comments…</ThemedText> : <ThemedText variant="meta" muted>{data.rows.length} comments</ThemedText>}
     </View>
     <HorizontalControls>
       <Chip compact label="New" onPress={() => jump('new')} />
@@ -118,23 +117,12 @@ export function StoryScreen({ id }: { id: number }) {
       {libraryEnabled ? <Chip compact label="Saved" onPress={() => jump('saved')} /> : null}
       <Chip compact label="Large threads" onPress={() => jump('large')} />
     </HorizontalControls>
-  </> : <Section title="Discussion module disabled" caption="Comment branches are not loaded while this capability is off.">
-    <Button label="Customize modules" icon="grid-outline" variant="secondary" onPress={() => router.push('/modules')} />
-  </Section>;
+  </> : null;
 
   const header = <View style={styles.storyHeader}>
     {summary}
     {story.text ? storyLayout === 'line' ? <View style={styles.storyTextLine}><ThemedText>{story.text}</ThemedText></View> : <Surface style={styles.storyText}><ThemedText>{story.text}</ThemedText></Surface> : null}
-    {archiveEnabled ? <Section title="Local timeline" caption="Snapshots are captured only when this installation sees the story."><Surface style={styles.sectionSurface}><TimelineChart snapshots={data.timeline} /></Surface></Section> : null}
-    {libraryEnabled ? <Section title="Library notes" caption="Stored only on this device.">
-      <Button label={notesOpen ? 'Hide notes' : data.note || data.tags.length ? 'Edit notes and tags' : 'Add notes and tags'} variant="secondary" onPress={() => setNotesOpen((value) => !value)} />
-      {notesOpen ? <Surface style={styles.notes}>
-        <TextInput value={note} onChangeText={setNote} placeholder="Your notes…" placeholderTextColor={theme.tokens.colors.mutedText} multiline style={[styles.noteInput, { color: theme.tokens.colors.text, borderColor: theme.tokens.colors.border }]} />
-        <TextInput value={tags} onChangeText={setTags} placeholder="tags, separated, by commas" placeholderTextColor={theme.tokens.colors.mutedText} autoCapitalize="none" style={[styles.tagInput, { color: theme.tokens.colors.text, borderColor: theme.tokens.colors.border }]} />
-        <Button label="Save locally" onPress={() => void Promise.all([data.saveNote(note), data.saveTags(tags.split(',').map((value) => value.trim()).filter(Boolean))])} />
-      </Surface> : null}
-    </Section> : null}
-    {discoveryEnabled && relevantRelated.length ? <Section title="Related in your archive" caption="Strong local title and text matches."><View style={styles.related}>{relevantRelated.map(({ story: related, similarity }) => <Pressable key={related.id} accessibilityRole="button" accessibilityLabel={`Open related story ${related.title}`} onPress={() => router.push({ pathname: '/story/[id]', params: { id: String(related.id) } })} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.relatedCard}><ThemedText variant="headline">{related.title}</ThemedText><ThemedText variant="caption" muted>{related.domain ?? 'HN'} · {Math.round(similarity * 100)}% match</ThemedText></Surface></Pressable>)}</View></Section> : null}
+    {data.commentsError ? <ErrorState message={data.commentsError} onRetry={() => void data.refresh()} /> : null}
     {discussionHeader}
   </View>;
 
@@ -147,8 +135,8 @@ export function StoryScreen({ id }: { id: number }) {
         keyExtractor={(row) => String(row.comment.id)}
         renderItem={({ item }) => <CommentRowView row={item} onToggle={() => data.toggleCollapsed(item.comment.id)} onSave={() => void data.toggleSavedComment(item.comment.id)} />}
         ListHeaderComponent={header}
-        ListEmptyComponent={commentsEnabled ? <EmptyState icon="chatbubble-outline" title="No comments" body={data.commentsLoading ? 'The discussion is still loading.' : 'This story has no cached comments yet.'} /> : null}
-        ListFooterComponent={commentsEnabled && data.commentsLoading ? <LoadingState label="Loading more comment branches…" /> : <View style={{ height: 100 }} />}
+        ListEmptyComponent={commentsEnabled && !data.commentsError ? <EmptyState icon="chatbubble-outline" title={story.descendants > 0 ? 'Loading discussion' : 'No comments yet'} body={data.commentsLoading ? 'Fetching the latest comments from Hacker News.' : story.descendants > 0 ? 'Pull to refresh and try again.' : 'Be the first to join the discussion on Hacker News.'} /> : null}
+        ListFooterComponent={commentsEnabled && data.commentsLoading ? <LoadingState label="Loading more comments…" /> : <View style={{ height: 100 }} />}
         drawDistance={1_000}
       />
       {commentsEnabled && data.rows.length > 0 ? <ThreadMinimap rows={data.rows} onSelect={(index) => listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 })} /> : null}
@@ -156,7 +144,7 @@ export function StoryScreen({ id }: { id: number }) {
     {collectionPickerOpen ? <View accessibilityViewIsModal style={styles.modal}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close collection picker" style={StyleSheet.absoluteFill} onPress={() => setCollectionPickerOpen(false)} />
         <Surface elevated style={styles.picker}>
-          <View style={styles.pickerHeader}><View style={styles.pickerCopy}><ThemedText variant="title">Add to collection</ThemedText><ThemedText variant="meta" muted numberOfLines={2}>{story.title}</ThemedText></View><IconButton icon="close" label="Close" onPress={() => setCollectionPickerOpen(false)} /></View>
+          <View style={styles.pickerHeader}><View style={styles.pickerCopy}><ThemedText variant="title">Add to list</ThemedText><ThemedText variant="meta" muted numberOfLines={2}>{story.title}</ThemedText></View><IconButton icon="close" label="Close" onPress={() => setCollectionPickerOpen(false)} /></View>
           <ScrollView style={styles.pickerList} contentContainerStyle={styles.pickerListContent}>
             {collections.map((collection) => <Pressable key={collection.id} accessibilityRole="button" accessibilityLabel={`Add to ${collection.name}`} onPress={() => void selectCollection(collection)} style={({ pressed }) => [styles.pickerRow, { borderBottomColor: theme.tokens.colors.border, opacity: pressed ? 0.62 : 1 }]}><View style={styles.pickerCopy}><ThemedText variant="headline">{collection.name}</ThemedText><ThemedText variant="caption" muted>{collection.itemIds.length} saved {collection.itemIds.length === 1 ? 'item' : 'items'}</ThemedText></View><ThemedText accent style={{ fontWeight: '800' }}>Add</ThemedText></Pressable>)}
           </ScrollView>
@@ -177,16 +165,11 @@ const styles = StyleSheet.create({
   actionStack: { gap: 4 },
   primaryActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   readButton: { flex: 1 },
-  secondaryActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  secondaryAction: { flex: 1, paddingHorizontal: 7 },
+  saveButton: { minWidth: 94 },
+  secondaryActions: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 4 },
+  secondaryAction: { flexGrow: 1, flexBasis: '47%', paddingHorizontal: 7 },
   storyText: { padding: 16 },
   storyTextLine: { paddingVertical: 10 },
-  sectionSurface: { padding: 14 },
-  notes: { padding: 12, gap: 10 },
-  noteInput: { minHeight: 120, textAlignVertical: 'top', borderWidth: 1, borderRadius: 10, padding: 12, fontSize: 15 },
-  tagInput: { minHeight: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 },
-  related: { gap: 8 },
-  relatedCard: { padding: 13, gap: 4 },
   commentsTitle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginTop: 4 },
   modal: { ...StyleSheet.absoluteFillObject, zIndex: 50, elevation: 50, justifyContent: 'flex-end', padding: 12, paddingBottom: 28, backgroundColor: 'rgba(0,0,0,0.58)' },
   picker: { maxHeight: '68%', padding: 14, gap: 12 },

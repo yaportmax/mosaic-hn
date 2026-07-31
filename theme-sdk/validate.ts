@@ -9,7 +9,7 @@ const layouts = {
   metadata: new Set(['inline', 'stacked', 'footer'])
 } as const;
 
-const FONT_FAMILIES = new Set(['system', 'rounded', 'serif', 'monospace']);
+const FONT_FAMILIES = new Set(['system', 'rounded', 'humanist', 'serif', 'condensed', 'monospace']);
 const FONT_WEIGHTS = new Set(['400', '500', '600', '700', '800']);
 const HEX = /^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?$/;

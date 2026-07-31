@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import { useLibraryData } from '../../hooks/useLibraryData.ts';
-import { useAppServices, useModuleEnabled, usePreferences } from '../../app/AppServices.tsx';
+import { useAppServices } from '../../app/AppServices.tsx';
 import { shareTextFile } from '../../app/file-exchange.ts';
 import { exportLibraryJson } from '../../core/exports.ts';
-import { formatTimeAgo, hnItemUrl } from '../../core/format.ts';
-import { openUrl } from '../../app/actions.ts';
+import { formatTimeAgo } from '../../core/format.ts';
 import { Screen } from '../../components/Screen.tsx';
 import { ScreenHeader } from '../../components/Header.tsx';
 import { Button, IconButton } from '../../components/Button.tsx';
@@ -18,28 +17,22 @@ import { ThemedText } from '../../components/ThemedText.tsx';
 import { useThemeRuntime } from '../../design/ThemeProvider.tsx';
 import { StoryRows } from '../shared/StoryRows.tsx';
 
-const categories = ['bookmarks', 'queue', 'history', 'collections', 'comments'] as const;
+const categories = ['bookmarks', 'queue', 'history', 'collections'] as const;
 type Category = typeof categories[number];
 const categoryOptions: ReadonlyArray<{ value: Category; label: string }> = [
   { value: 'bookmarks', label: 'Saved' },
-  { value: 'queue', label: 'Queue' },
+  { value: 'queue', label: 'Read later' },
   { value: 'history', label: 'History' },
-  { value: 'collections', label: 'Lists' },
-  { value: 'comments', label: 'Comments' }
+  { value: 'collections', label: 'Lists' }
 ];
 
 export function LibraryScreen() {
   const data = useLibraryData();
   const { database } = useAppServices();
-  const preferences = usePreferences();
-  const commentsEnabled = useModuleEnabled('comments');
-  const archiveEnabled = useModuleEnabled('archive');
   const { theme } = useThemeRuntime();
   const [category, setCategory] = useState<Category>('bookmarks');
   const [creating, setCreating] = useState(false);
   const [collectionName, setCollectionName] = useState('');
-  const visibleCategories = commentsEnabled ? categories : categories.filter((item) => item !== 'comments');
-  useEffect(() => { if (!commentsEnabled && category === 'comments') setCategory('bookmarks'); }, [category, commentsEnabled]);
 
   const exportAll = async () => {
     const payload = await database.repository.getLibraryExport();
@@ -50,31 +43,31 @@ export function LibraryScreen() {
     if (!name) return;
     const now = Math.floor(Date.now() / 1000);
     await database.repository.saveCollection({ id: Crypto.randomUUID(), name, createdAt: now, updatedAt: now, itemIds: [] });
-    setCollectionName(''); setCreating(false); await data.refresh();
-  };
-
-  const emptyCopy: Record<Category, [string, string]> = {
-    bookmarks: ['No bookmarks', 'Save stories with the bookmark control or your configured gesture.'],
-    queue: ['Your reading queue is empty', 'Queue stories for later without sending data to a cloud service.'],
-    history: ['No reading history', 'Stories appear here after you open their discussions.'],
-    collections: ['No collections', 'Create local folders for research, projects, or reading lists.'],
-    comments: ['No saved comments', 'Bookmark individual comments from any discussion.']
+    setCollectionName('');
+    setCreating(false);
+    await data.refresh();
   };
 
   return <Screen edges={['top']}>
-    <ScreenHeader title="Library" subtitle="Private and offline" actions={<>{archiveEnabled ? <IconButton icon="calendar-outline" label="Open local archive" onPress={() => router.push('/archive')} /> : null}<IconButton icon="share-outline" label="Export library" onPress={() => void exportAll().catch((error) => Alert.alert('Export failed', error.message))} /></>} />
-    <TabStrip options={categoryOptions.filter((option) => visibleCategories.includes(option.value))} value={category} onChange={setCategory} />
+    <ScreenHeader title="Library" subtitle="Saved on this device" actions={<IconButton icon="share-outline" label="Export saved data" onPress={() => void exportAll().catch((error) => Alert.alert('Export failed', error.message))} />} />
+    <TabStrip options={categoryOptions} value={category} onChange={setCategory} />
     {data.loading ? <LoadingState label="Opening your library…" /> : <ScrollView contentContainerStyle={styles.content}>
-      {category === 'bookmarks' && (data.bookmarks.length ? <StoryRows stories={data.bookmarks} /> : <EmptyState title={emptyCopy.bookmarks[0]} body={emptyCopy.bookmarks[1]} actionLabel="Browse stories" onAction={() => router.push('/')} />)}
-      {category === 'queue' && (data.queue.length ? <StoryRows stories={data.queue} /> : <EmptyState icon="time-outline" title={emptyCopy.queue[0]} body={emptyCopy.queue[1]} actionLabel="Browse stories" onAction={() => router.push('/')} />)}
-      {category === 'history' && (data.history.length ? <StoryRows stories={data.history} /> : <EmptyState icon="footsteps-outline" title={emptyCopy.history[0]} body={emptyCopy.history[1]} actionLabel="Open the feed" onAction={() => router.push('/')} />)}
+      {category === 'bookmarks' && (data.bookmarks.length ? <StoryRows stories={data.bookmarks} /> : <EmptyState icon="bookmark-outline" title="No saved stories" body="Tap Save on a story to keep it here." actionLabel="Browse stories" onAction={() => router.push('/')} />)}
+      {category === 'queue' && (data.queue.length ? <StoryRows stories={data.queue} /> : <EmptyState icon="time-outline" title="Nothing to read later" body="Tap Read later on a story to keep a short reading list here." actionLabel="Browse stories" onAction={() => router.push('/')} />)}
+      {category === 'history' && (data.history.length ? <StoryRows stories={data.history} /> : <EmptyState icon="footsteps-outline" title="No reading history" body="Stories appear here after you open their discussions." actionLabel="Open the feed" onAction={() => router.push('/')} />)}
       {category === 'collections' && <View style={styles.stack}>
-        <Button label={creating ? 'Cancel' : 'New collection'} icon={creating ? 'close' : 'add'} variant="secondary" onPress={() => setCreating((value) => !value)} />
-        {creating ? <Surface style={styles.newCollection}><TextInput value={collectionName} onChangeText={setCollectionName} placeholder="Collection name" placeholderTextColor={theme.tokens.colors.mutedText} style={[styles.collectionInput, { color: theme.tokens.colors.text, borderColor: theme.tokens.colors.border }]} autoFocus onSubmitEditing={() => void createCollection()} /><Button label="Create" onPress={() => void createCollection()} /></Surface> : null}
-        {data.collections.length ? data.collections.map((collection) => <Pressable key={collection.id} accessibilityRole="button" accessibilityLabel={`Open collection ${collection.name}`} onPress={() => router.push({ pathname: '/collection/[id]', params: { id: collection.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.collection}><ThemedText variant="headline">{collection.name}</ThemedText><ThemedText variant="meta" muted>{collection.itemIds.length} items · updated {formatTimeAgo(collection.updatedAt)}</ThemedText></Surface></Pressable>) : !creating ? <EmptyState icon="folder-open-outline" title={emptyCopy.collections[0]} body={emptyCopy.collections[1]} /> : null}
+        <Button label={creating ? 'Cancel' : 'New list'} icon={creating ? 'close' : 'add'} variant="secondary" onPress={() => setCreating((value) => !value)} />
+        {creating ? <Surface style={styles.newCollection}><TextInput value={collectionName} onChangeText={setCollectionName} placeholder="List name" placeholderTextColor={theme.tokens.colors.mutedText} style={[styles.collectionInput, { color: theme.tokens.colors.text, borderColor: theme.tokens.colors.border }]} autoFocus onSubmitEditing={() => void createCollection()} /><Button label="Create list" onPress={() => void createCollection()} /></Surface> : null}
+        {data.collections.length ? data.collections.map((collection) => <Pressable key={collection.id} accessibilityRole="button" accessibilityLabel={`Open list ${collection.name}`} onPress={() => router.push({ pathname: '/collection/[id]', params: { id: collection.id } })} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.collection}><ThemedText variant="headline">{collection.name}</ThemedText><ThemedText variant="meta" muted>{collection.itemIds.length} stories · updated {formatTimeAgo(collection.updatedAt)}</ThemedText></Surface></Pressable>) : !creating ? <EmptyState icon="folder-open-outline" title="No lists" body="Create a list to organize saved stories by topic or project." /> : null}
       </View>}
-      {commentsEnabled && category === 'comments' && (data.savedComments.length ? <View style={styles.stack}>{data.savedComments.map((comment) => <Pressable key={comment.id} accessibilityRole="link" accessibilityLabel={`Open saved comment by ${comment.by}`} onPress={() => void openUrl(hnItemUrl(comment.id), preferences.openLinks)} style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}><Surface style={styles.comment}><ThemedText variant="meta" accent>{comment.by}</ThemedText><ThemedText numberOfLines={7}>{comment.text || '[deleted]'}</ThemedText></Surface></Pressable>)}</View> : <EmptyState icon="chatbox-ellipses-outline" title={emptyCopy.comments[0]} body={emptyCopy.comments[1]} actionLabel="Browse discussions" onAction={() => router.push('/')} />)}
     </ScrollView>}
   </Screen>;
 }
-const styles = StyleSheet.create({ content: { flexGrow: 1, padding: 14, paddingBottom: 110 }, stack: { gap: 10 }, collection: { padding: 16, gap: 4 }, comment: { padding: 14, gap: 6 }, newCollection: { padding: 12, gap: 10 }, collectionInput: { minHeight: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 16 } });
+
+const styles = StyleSheet.create({
+  content: { flexGrow: 1, padding: 14, paddingBottom: 110 },
+  stack: { gap: 10 },
+  collection: { padding: 16, gap: 4 },
+  newCollection: { padding: 12, gap: 10 },
+  collectionInput: { minHeight: 44, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 16 }
+});

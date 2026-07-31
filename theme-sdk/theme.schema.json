@@ -69,7 +69,7 @@
           "type": "object", "additionalProperties": false,
           "required": ["fontFamily", "monoFamily", "scale", "titleWeight", "bodyWeight"],
           "properties": {
-            "fontFamily": {"enum": ["system", "rounded", "serif", "monospace"]}, "monoFamily": {"const": "monospace"},
+            "fontFamily": {"enum": ["system", "rounded", "humanist", "serif", "condensed", "monospace"]}, "monoFamily": {"const": "monospace"},
             "scale": {"type": "number", "minimum": 0.75, "maximum": 1.75},
             "titleWeight": {"enum": ["400", "500", "600", "700", "800"]}, "bodyWeight": {"enum": ["400", "500", "600", "700", "800"]}
           }

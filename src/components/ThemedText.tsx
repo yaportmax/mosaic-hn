@@ -10,6 +10,8 @@ export function fontFamilyFor(token: string): string | undefined {
   if (token === 'monospace') return Platform.select({ ios: 'ui-monospace', android: 'monospace', default: 'monospace' });
   if (token === 'serif') return Platform.select({ ios: 'New York', android: 'serif', default: 'serif' });
   if (token === 'rounded') return Platform.select({ ios: 'ui-rounded', android: 'sans-serif', default: undefined });
+  if (token === 'humanist') return Platform.select({ ios: 'Avenir Next', android: 'sans-serif', default: 'Avenir Next, Segoe UI, sans-serif' });
+  if (token === 'condensed') return Platform.select({ ios: 'Avenir Next Condensed', android: 'sans-serif-condensed', default: 'Arial Narrow, sans-serif-condensed, sans-serif' });
   return undefined;
 }
 

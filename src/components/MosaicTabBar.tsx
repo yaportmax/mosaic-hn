@@ -1,8 +1,6 @@
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useModuleConfiguration } from '../app/AppServices.tsx';
-import { getMoreModules, getTabModules } from '../modules/runtime.ts';
 import { useThemeRuntime } from '../design/ThemeProvider.tsx';
 import { Surface } from './Surface.tsx';
 import { ThemedText } from './ThemedText.tsx';
@@ -13,10 +11,16 @@ interface TabNavigation {
   emit(event: { type: 'tabPress' | 'tabLongPress'; target: string; canPreventDefault?: boolean }): { defaultPrevented?: boolean };
   navigate(name: string, params?: object): void;
 }
-interface TabEntry { id: string; label: string; icon: string; activeIcon: string; route: TabRoute; memberRoutes: readonly string[] }
+interface TabEntry { id: string; label: string; icon: string; activeIcon: string; route: TabRoute }
+
+const PRIMARY_TABS = [
+  { id: 'feed', routeName: 'index', label: 'Feed', icon: 'newspaper-outline', activeIcon: 'newspaper' },
+  { id: 'search', routeName: 'search', label: 'Search', icon: 'search-outline', activeIcon: 'search' },
+  { id: 'library', routeName: 'library', label: 'Library', icon: 'library-outline', activeIcon: 'library' },
+  { id: 'settings', routeName: 'settings', label: 'Settings', icon: 'settings-outline', activeIcon: 'settings' }
+] as const;
 
 export function MosaicTabBar({ state, navigation }: { state: TabState; navigation: TabNavigation }) {
-  const configuration = useModuleConfiguration();
   const { theme } = useThemeRuntime();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -24,23 +28,16 @@ export function MosaicTabBar({ state, navigation }: { state: TabState; navigatio
   const minimal = theme.layout.navigation === 'minimal';
   const floating = !sidebar && (theme.layout.shell === 'floating-tabs' || theme.layout.navigation === 'floating');
   const iconSize = sidebar ? 22 : minimal ? 24 : 21;
-  const tabModules = getTabModules(configuration);
-  const moreModules = getMoreModules(configuration);
-  const needsMore = moreModules.length > 0 || tabModules.length > 5;
-  const visibleTabModules = needsMore ? tabModules.slice(0, 4) : tabModules;
-  const overflowTabModules = needsMore ? tabModules.slice(4) : [];
-  const entries: TabEntry[] = visibleTabModules.flatMap((module) => {
-    const route = state.routes.find((candidate) => candidate.name === module.tabRoute);
-    return route ? [{ id: module.id, label: module.shortName, icon: module.icon, activeIcon: module.activeIcon, route, memberRoutes: [route.name] }] : [];
+  const entries: TabEntry[] = PRIMARY_TABS.flatMap((entry) => {
+    const route = state.routes.find((candidate) => candidate.name === entry.routeName);
+    return route ? [{ id: entry.id, label: entry.label, icon: entry.icon, activeIcon: entry.activeIcon, route }] : [];
   });
-  const moreRoute = state.routes.find((route) => route.name === 'more');
-  if (moreRoute && needsMore) entries.push({ id: 'more', label: 'More', icon: 'ellipsis-horizontal-circle-outline', activeIcon: 'ellipsis-horizontal-circle', route: moreRoute, memberRoutes: ['more', ...[...overflowTabModules, ...moreModules].flatMap((module) => module.tabRoute ? [module.tabRoute] : [])] });
   const currentRoute = state.routes[state.index]?.name ?? '';
 
   const barContent = <View style={[styles.bar, sidebar ? styles.sidebar : styles.bottom, minimal && !sidebar ? styles.minimalBar : null, sidebar ? { paddingTop: Math.max(insets.top, 14), paddingBottom: Math.max(insets.bottom, 14) } : { paddingBottom: Math.max(insets.bottom, 7), paddingTop: 7 }]}>{entries.map((entry) => {
     const routeIndex = state.routes.findIndex((candidate) => candidate.key === entry.route.key);
-    const focused = entry.memberRoutes.includes(currentRoute);
-    return <Pressable key={entry.id} accessibilityRole="button" accessibilityState={{ selected: focused }} accessibilityLabel={entry.label} onPress={() => { const event = navigation.emit({ type: 'tabPress', target: entry.route.key, canPreventDefault: true }); if ((state.index !== routeIndex || entry.id === 'more') && !event.defaultPrevented) navigation.navigate(entry.route.name, entry.route.params); }} onLongPress={() => navigation.emit({ type: 'tabLongPress', target: entry.route.key })} style={({ pressed }) => [styles.item, minimal && styles.minimalItem, sidebar && styles.sidebarItem, focused && { backgroundColor: `${theme.tokens.colors.accent}18` }, { opacity: pressed ? 0.62 : 1, borderRadius: Math.max(12, theme.tokens.shape.radius * 0.75) }]}>
+    const focused = currentRoute === entry.route.name || (entry.id === 'settings' && !PRIMARY_TABS.some((tab) => tab.routeName === currentRoute));
+    return <Pressable key={entry.id} accessibilityRole="button" accessibilityState={{ selected: focused }} accessibilityLabel={entry.label} onPress={() => { const event = navigation.emit({ type: 'tabPress', target: entry.route.key, canPreventDefault: true }); if (state.index !== routeIndex && !event.defaultPrevented) navigation.navigate(entry.route.name, entry.route.params); }} onLongPress={() => navigation.emit({ type: 'tabLongPress', target: entry.route.key })} style={({ pressed }) => [styles.item, minimal && styles.minimalItem, sidebar && styles.sidebarItem, focused && { backgroundColor: `${theme.tokens.colors.accent}18` }, { opacity: pressed ? 0.62 : 1, borderRadius: Math.max(12, theme.tokens.shape.radius * 0.75) }]}>
       <Ionicons name={(focused ? entry.activeIcon : entry.icon) as never} size={iconSize} color={focused ? theme.tokens.colors.accent : theme.tokens.colors.mutedText} />
       {!minimal || sidebar ? <ThemedText variant="caption" numberOfLines={1} style={{ color: focused ? theme.tokens.colors.accent : theme.tokens.colors.mutedText, fontWeight: focused ? '800' : '600' }}>{entry.label}</ThemedText> : null}
     </Pressable>;

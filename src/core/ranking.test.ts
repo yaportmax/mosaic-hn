@@ -33,3 +33,26 @@ test('rankStories uses locally observed growth without requiring a remote servic
   });
   assert.equal(ranked[0]?.story.id, 1);
 });
+
+test('recency mode 2 sorts strictly newest first', () => {
+  const oldPopular = makeStory({ id: 1, time: 1_000, score: 1_000, descendants: 500 });
+  const newQuiet = makeStory({ id: 2, time: 2_000, score: 1, descendants: 0 });
+  const preset = { ...DEFAULT_FEED_PRESET, weights: { ...DEFAULT_FEED_PRESET.weights, recency: 2 } };
+  const ranked = rankStories([oldPopular, newQuiet], preset, { nowSeconds: 3_000 });
+  assert.deepEqual(ranked.map((entry) => entry.story.id), [2, 1]);
+  assert.equal(ranked[0]?.rankScore, newQuiet.time);
+});
+
+test('recency mode 0 removes age while point and comment caps use real counts', () => {
+  const oldPopular = makeStory({ id: 1, time: 1_000, score: 500, descendants: 200 });
+  const newQuiet = makeStory({ id: 2, time: 10_000, score: 25, descendants: 5 });
+  const preset = {
+    ...DEFAULT_FEED_PRESET,
+    weights: { ...DEFAULT_FEED_PRESET.weights, recency: 0, score: 500, discussion: 200, growth: 0, preferred: 0, keyword: 0 }
+  };
+  const ranked = rankStories([newQuiet, oldPopular], preset, { nowSeconds: 11_000 });
+  assert.equal(ranked[0]?.story.id, 1);
+  assert.ok(ranked[0]?.explanations.some((line) => line.label === 'Points up to 500'));
+  assert.ok(ranked[0]?.explanations.some((line) => line.label === 'Comments up to 200'));
+  assert.ok(ranked.every((entry) => !entry.explanations.some((line) => line.code === 'recency')));
+});

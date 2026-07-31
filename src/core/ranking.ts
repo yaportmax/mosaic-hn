@@ -3,7 +3,7 @@ import type { FeedPreset, RankedStory, RankingExplanation, Story, StorySnapshot 
 export const DEFAULT_FEED_PRESET: FeedPreset = {
   id: 'balanced',
   name: 'Balanced',
-  weights: { recency: 1.4, score: 1, discussion: 0.8, growth: 1.1, preferred: 1, keyword: 1 },
+  weights: { recency: 1, score: 500, discussion: 200, growth: 1, preferred: 1, keyword: 1 },
   recencyHalfLifeHours: 12,
   preferredDomains: [],
   preferredAuthors: [],
@@ -28,12 +28,15 @@ export function rankStories(stories: readonly Story[], preset: FeedPreset, conte
   const ranked = stories.map((story): RankedStory => {
     const explanations: RankingExplanation[] = [];
     const ageHours = Math.max(0, context.nowSeconds - story.time) / 3600;
-    const recency = Math.pow(0.5, ageHours / halfLife) * preset.weights.recency;
-    const score = normalizeLog(story.score, 1_000) * preset.weights.score;
-    const discussion = normalizeLog(story.descendants, 500) * preset.weights.discussion;
-    explanations.push({ code: 'recency', label: 'Recency', contribution: recency });
-    explanations.push({ code: 'score', label: 'Story score', contribution: score });
-    explanations.push({ code: 'discussion', label: 'Discussion size', contribution: discussion });
+    const recencyMode = Math.max(0, Math.min(2, preset.weights.recency));
+    const recency = recencyMode > 0 && recencyMode < 2 ? Math.pow(0.5, ageHours / halfLife) * recencyMode : 0;
+    const pointsCap = preset.weights.score <= 3 ? preset.weights.score * 500 : preset.weights.score;
+    const commentsCap = preset.weights.discussion <= 3 ? preset.weights.discussion * 250 : preset.weights.discussion;
+    const score = pointsCap > 0 ? normalizeLog(story.score, pointsCap) : 0;
+    const discussion = commentsCap > 0 ? normalizeLog(story.descendants, commentsCap) : 0;
+    if (recency > 0) explanations.push({ code: 'recency', label: 'Standard recency', contribution: recency });
+    if (score > 0) explanations.push({ code: 'score', label: `Points up to ${Math.round(pointsCap)}`, contribution: score });
+    if (discussion > 0) explanations.push({ code: 'discussion', label: `Comments up to ${Math.round(commentsCap)}`, contribution: discussion });
 
     let growth = 0;
     const snapshot = context.snapshots?.get(story.id);
@@ -61,8 +64,13 @@ export function rankStories(stories: readonly Story[], preset: FeedPreset, conte
       explanations.push({ code: 'preferred-keyword', label: `Preferred keyword: ${keywordMatches.join(', ')}`, contribution: keywordContribution });
     }
 
-    return { story, rankScore: recency + score + discussion + growth + preferred + keywordContribution, explanations };
+    return {
+      story,
+      rankScore: preset.weights.recency >= 2 ? story.time : recency + score + discussion + growth + preferred + keywordContribution,
+      explanations
+    };
   });
 
+  if (preset.weights.recency >= 2) return ranked.sort((a, b) => b.story.time - a.story.time || b.story.id - a.story.id);
   return ranked.sort((a, b) => b.rankScore - a.rankScore || a.story.id - b.story.id);
 }

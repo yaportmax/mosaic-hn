@@ -12,13 +12,26 @@ export interface AppDatabase {
   close(): Promise<void>;
 }
 
+let webDatabasePromise: Promise<AppDatabase> | null = null;
+
+async function openWebDatabase(): Promise<AppDatabase> {
+  const adapter = typeof indexedDB === 'undefined'
+    ? new MemoryDatabaseAdapter()
+    : await IndexedDBDatabaseAdapter.open().catch(() => new MemoryDatabaseAdapter());
+  const repository = new ReaderRepository(adapter, new HnClient({ concurrency: 12 }));
+  return {
+    adapter,
+    repository,
+    // The browser owns the document lifetime. Keeping one connection prevents
+    // React remounts from closing storage while in-flight work is still saving.
+    close: async () => undefined
+  };
+}
+
 export async function openAppDatabase(): Promise<AppDatabase> {
   if (Platform.OS === 'web') {
-    const adapter = typeof indexedDB === 'undefined'
-      ? new MemoryDatabaseAdapter()
-      : await IndexedDBDatabaseAdapter.open().catch(() => new MemoryDatabaseAdapter());
-    const repository = new ReaderRepository(adapter, new HnClient({ concurrency: 12 }));
-    return { adapter, repository, close: async () => { if (adapter instanceof IndexedDBDatabaseAdapter) adapter.close(); } };
+    webDatabasePromise ??= openWebDatabase();
+    return webDatabasePromise;
   }
   const adapter = await SQLiteDatabaseAdapter.open();
   const repository = new ReaderRepository(adapter, new HnClient({ concurrency: 12 }));

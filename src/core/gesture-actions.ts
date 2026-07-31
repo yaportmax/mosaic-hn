@@ -12,7 +12,7 @@ const APPEARANCES: Record<GestureAction, GestureActionAppearance> = Object.freez
   none: { icon: 'remove-outline', label: 'No action', tone: 'muted' },
   open: { icon: 'open-outline', label: 'Open', tone: 'accent' },
   save: { icon: 'bookmark', label: 'Save', tone: 'success' },
-  queue: { icon: 'time', label: 'Queue', tone: 'warning' },
+  queue: { icon: 'time', label: 'Read later', tone: 'warning' },
   share: { icon: 'share-social', label: 'Share', tone: 'accent' },
   hide: { icon: 'eye-off', label: 'Hide', tone: 'danger' }
 });

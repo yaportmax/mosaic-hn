@@ -1,2 +1,5 @@
-import { ModulesScreen } from '../../src/features/modules/ModulesScreen.tsx';
-export default function ModulesTabRoute() { return <ModulesScreen />; }
+import { Redirect } from 'expo-router';
+
+export default function ModulesTabRoute() {
+  return <Redirect href="/settings" />;
+}

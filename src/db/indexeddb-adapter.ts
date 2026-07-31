@@ -36,9 +36,24 @@ async function openDatabase(): Promise<IDBDatabase> {
   return requestResult(request);
 }
 
+function isClosingConnectionError(reason: unknown): boolean {
+  const name = reason instanceof DOMException ? reason.name : '';
+  const message = reason instanceof Error ? reason.message.toLowerCase() : String(reason).toLowerCase();
+  return name === 'InvalidStateError'
+    || message.includes('connection is closing')
+    || message.includes('connection is closed')
+    || message.includes('database connection is closing');
+}
+
 export class IndexedDBDatabaseAdapter extends MemoryDatabaseAdapter {
-  private constructor(private readonly database: IDBDatabase, initial: Map<string, Map<string, unknown>>) {
+  private database: IDBDatabase | null;
+  private opening: Promise<IDBDatabase> | null = null;
+  private closed = false;
+
+  private constructor(database: IDBDatabase, initial: Map<string, Map<string, unknown>>) {
     super(initial);
+    this.database = database;
+    this.watch(database);
   }
 
   static async open(): Promise<IndexedDBDatabaseAdapter> {
@@ -55,35 +70,86 @@ export class IndexedDBDatabaseAdapter extends MemoryDatabaseAdapter {
     return new IndexedDBDatabaseAdapter(database, tables);
   }
 
+  private watch(database: IDBDatabase): void {
+    database.onversionchange = () => {
+      database.close();
+      if (this.database === database) this.database = null;
+    };
+    database.onclose = () => {
+      if (this.database === database) this.database = null;
+    };
+  }
+
+  private async ensureDatabase(): Promise<IDBDatabase> {
+    if (this.closed) throw new Error('Browser storage is closed');
+    if (this.database) return this.database;
+    if (!this.opening) {
+      this.opening = openDatabase().then((database) => {
+        this.database = database;
+        this.watch(database);
+        return database;
+      }).finally(() => { this.opening = null; });
+    }
+    return this.opening;
+  }
+
+  private discard(database: IDBDatabase): void {
+    if (this.database === database) this.database = null;
+    try { database.close(); } catch { /* The browser may already be closing it. */ }
+  }
+
+  private async runTransaction<T>(
+    mode: IDBTransactionMode,
+    work: (store: IDBObjectStore) => T | Promise<T>
+  ): Promise<T> {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const database = await this.ensureDatabase();
+      try {
+        const transaction = database.transaction(STORE_NAME, mode);
+        const result = await work(transaction.objectStore(STORE_NAME));
+        await transactionDone(transaction);
+        return result;
+      } catch (reason) {
+        if (attempt === 0 && isClosingConnectionError(reason)) {
+          this.discard(database);
+          continue;
+        }
+        throw reason;
+      }
+    }
+    throw new Error('Browser storage could not be reopened');
+  }
+
   override async set<T>(table: string, key: string, value: T): Promise<void> {
     await super.set(table, key, value);
-    const transaction = this.database.transaction(STORE_NAME, 'readwrite');
-    transaction.objectStore(STORE_NAME).put({ id: recordId(table, key), table, key, value: structuredClone(value) } satisfies StoredRecord);
-    await transactionDone(transaction);
+    await this.runTransaction('readwrite', (store) => {
+      store.put({ id: recordId(table, key), table, key, value: structuredClone(value) } satisfies StoredRecord);
+    });
   }
 
   override async delete(table: string, key: string): Promise<void> {
     await super.delete(table, key);
-    const transaction = this.database.transaction(STORE_NAME, 'readwrite');
-    transaction.objectStore(STORE_NAME).delete(recordId(table, key));
-    await transactionDone(transaction);
+    await this.runTransaction('readwrite', (store) => {
+      store.delete(recordId(table, key));
+    });
   }
 
   override async transaction<T>(work: (transaction: DatabaseAdapter) => Promise<T>): Promise<T> {
     const result = await super.transaction(work);
-    const transaction = this.database.transaction(STORE_NAME, 'readwrite');
-    const store = transaction.objectStore(STORE_NAME);
-    store.clear();
-    for (const [tableName, records] of this.tables) {
-      for (const [key, value] of records) {
-        store.put({ id: recordId(tableName, key), table: tableName, key, value: structuredClone(value) } satisfies StoredRecord);
+    await this.runTransaction('readwrite', (store) => {
+      store.clear();
+      for (const [tableName, records] of this.tables) {
+        for (const [key, value] of records) {
+          store.put({ id: recordId(tableName, key), table: tableName, key, value: structuredClone(value) } satisfies StoredRecord);
+        }
       }
-    }
-    await transactionDone(transaction);
+    });
     return result;
   }
 
   close(): void {
-    this.database.close();
+    this.closed = true;
+    this.database?.close();
+    this.database = null;
   }
 }

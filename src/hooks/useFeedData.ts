@@ -41,21 +41,24 @@ export function useFeedData(feed: FeedKind): FeedDataState {
 
   const prepare = useCallback(async (stories: readonly Story[]) => {
     const current = ++generation.current;
-    let [presets, rules, snapshots, hiddenIds, bookmarks, queue] = await Promise.all([
-      algorithmsEnabled ? database.repository.listPresets() : Promise.resolve([]),
+    const presets = algorithmsEnabled ? await database.repository.listPresets() : [];
+    const selected = algorithmsEnabled
+      ? presets.find((candidate) => candidate.id === preferences.activePresetId) ?? presets[0] ?? DEFAULT_FEED_PRESET
+      : DEFAULT_FEED_PRESET;
+    const candidates = selected.weights.recency === 0
+      ? await database.repository.getAllCachedStories(Math.max(preferences.feedLimit, 2_000))
+      : stories;
+    let [rules, snapshots, hiddenIds, bookmarks, queue] = await Promise.all([
       automationEnabled ? database.repository.listRules() : Promise.resolve([]),
-      algorithmsEnabled ? database.repository.getLatestSnapshots(stories.map((story) => story.id)) : Promise.resolve(new Map()),
+      algorithmsEnabled ? database.repository.getLatestSnapshots(candidates.map((story) => story.id)) : Promise.resolve(new Map()),
       automationEnabled ? database.repository.getHiddenIds() : Promise.resolve(new Set<number>()),
       libraryEnabled ? database.repository.getFlaggedIds('bookmarks') : Promise.resolve(new Set<number>()),
       libraryEnabled ? database.repository.getFlaggedIds('queue') : Promise.resolve(new Set<number>())
     ]);
-    const selected = algorithmsEnabled
-      ? presets.find((candidate) => candidate.id === preferences.activePresetId) ?? presets[0] ?? DEFAULT_FEED_PRESET
-      : DEFAULT_FEED_PRESET;
     const persistentHiddenCount = automationEnabled
-      ? stories.reduce((count, story) => count + (hiddenIds.has(story.id) ? 1 : 0), 0)
+      ? candidates.reduce((count, story) => count + (hiddenIds.has(story.id) ? 1 : 0), 0)
       : 0;
-    const visible = automationEnabled ? stories.filter((story) => !hiddenIds.has(story.id)) : stories;
+    const visible = automationEnabled ? candidates.filter((story) => !hiddenIds.has(story.id)) : candidates;
     const result = buildFeedView(visible, selected, rules, {
       nowSeconds: Math.floor(Date.now() / 1000),
       feed,
@@ -73,7 +76,7 @@ export function useFeedData(feed: FeedKind): FeedDataState {
     setQueuedIds(queue);
     setItems(result.items);
     setHiddenCount(persistentHiddenCount + result.hiddenStoryIds.length);
-  }, [algorithmsEnabled, automationEnabled, database.repository, feed, libraryEnabled, preferences.activePresetId]);
+  }, [algorithmsEnabled, automationEnabled, database.repository, feed, libraryEnabled, preferences.activePresetId, preferences.feedLimit]);
 
   const reloadFromCache = useCallback(async () => {
     const cached = await database.repository.getCachedFeed(feed, preferences.feedLimit);
